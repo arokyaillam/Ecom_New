@@ -7,7 +7,14 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export default async function merchantUploadRoutes(fastify: FastifyInstance) {
   // POST /api/v1/merchant/upload
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      tags: ['Merchant Upload'],
+      summary: 'Upload image',
+      description: 'Upload an image file (JPEG, PNG, WebP, GIF) up to 10MB for the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const data = await request.file();
 
     if (!data) {

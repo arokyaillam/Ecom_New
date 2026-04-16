@@ -42,7 +42,13 @@ async function updateCartTotals(cartId: string) {
 
 export default async function publicCartRoutes(fastify: FastifyInstance) {
   // GET /api/v1/public/cart - Get or create cart
-  fastify.get('/', async (request, reply) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Get or create cart',
+      description: 'Retrieve the current guest cart or create a new one using a cookie-based session',
+    },
+  }, async (request, reply) => {
     let cartId = request.cookies.cartId;
 
     if (cartId) {
@@ -77,7 +83,13 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/public/cart/items - Add item to cart
-  fastify.post('/items', async (request, reply) => {
+  fastify.post('/items', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Add item to cart',
+      description: 'Add a product item to the guest cart, creating the cart if needed',
+    },
+  }, async (request, reply) => {
     const parsed = addItemSchema.parse(request.body);
     let cartId = request.cookies.cartId;
 
@@ -151,7 +163,13 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/public/cart/items/:itemId - Update item quantity
-  fastify.patch('/items/:itemId', async (request, reply) => {
+  fastify.patch('/items/:itemId', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Update cart item quantity',
+      description: 'Update the quantity of a specific item in the guest cart',
+    },
+  }, async (request, reply) => {
     const { itemId } = itemIdParamSchema.parse(request.params);
     const parsed = updateItemSchema.parse(request.body);
     const cartId = request.cookies.cartId;
@@ -191,7 +209,13 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/public/cart/items/:itemId - Remove item from cart
-  fastify.delete('/items/:itemId', async (request, reply) => {
+  fastify.delete('/items/:itemId', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Remove cart item',
+      description: 'Remove a specific item from the guest cart',
+    },
+  }, async (request, reply) => {
     const { itemId } = itemIdParamSchema.parse(request.params);
     const cartId = request.cookies.cartId;
 

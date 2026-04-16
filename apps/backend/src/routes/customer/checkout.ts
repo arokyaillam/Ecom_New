@@ -44,7 +44,14 @@ const checkoutSchema = z.strictObject({
 
 export default async function customerCheckoutRoutes(fastify: FastifyInstance) {
   // POST /api/v1/customer/checkout - Create an order
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      tags: ['Customer Checkout'],
+      summary: 'Place order',
+      description: 'Create a new order from the cart for the authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const parsed = checkoutSchema.parse(request.body);
 
     const subtotal = parsed.items.reduce((sum, item) => sum + parseFloat(item.total), 0).toFixed(2);

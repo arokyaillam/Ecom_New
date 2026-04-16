@@ -26,7 +26,13 @@ const registerSchema = z.strictObject({
 
 export default async function merchantAuthRoutes(fastify: FastifyInstance) {
   // POST /api/v1/merchant/auth/login
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Login as merchant',
+      description: 'Authenticate a merchant user with email and password to receive an httpOnly session cookie',
+    },
+  }, async (request, reply) => {
     const parsed = loginSchema.parse(request.body);
 
     const user = await authService.verifyMerchantCredentials(parsed.email, parsed.password);
@@ -58,7 +64,13 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/merchant/auth/register
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Register a merchant',
+      description: 'Create a new merchant account with store, owner, and domain details',
+    },
+  }, async (request, reply) => {
     const parsed = registerSchema.parse(request.body);
 
     const { store, user } = await authService.registerMerchant(parsed);
@@ -94,13 +106,26 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/merchant/auth/logout
-  fastify.post('/logout', async (_request, reply) => {
+  fastify.post('/logout', {
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Logout as merchant',
+      description: 'Clear the merchant session cookie and end the authenticated session',
+    },
+  }, async (_request, reply) => {
     reply.clearCookie('token', { path: '/' });
     return { success: true };
   });
 
   // GET /api/v1/merchant/auth/me
-  fastify.get('/me', async (request, reply) => {
+  fastify.get('/me', {
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Get current merchant user',
+      description: 'Retrieve the currently authenticated merchant user profile',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const currentUser = await db.query.users.findFirst({
       where: eq(users.id, request.userId),
     });

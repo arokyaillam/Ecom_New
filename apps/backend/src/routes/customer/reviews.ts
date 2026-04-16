@@ -25,7 +25,14 @@ const idParamSchema = z.strictObject({
 
 export default async function customerReviewsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/customer/reviews - List customer's reviews
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Customer Reviews'],
+      summary: 'List customer reviews',
+      description: 'List all reviews written by the authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const result = await reviewService.findByStoreId(request.storeId, { page: 1, limit: 100 });
     // Filter to only show this customer's reviews
     const customerReviews = result.data.filter((r: { customerId: string | null }) =>
@@ -35,7 +42,14 @@ export default async function customerReviewsRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/customer/reviews - Create a review
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      tags: ['Customer Reviews'],
+      summary: 'Create review',
+      description: 'Submit a new product review as an authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const parsed = createReviewSchema.parse(request.body);
     const review = await reviewService.create({
       storeId: request.storeId,
@@ -51,7 +65,14 @@ export default async function customerReviewsRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/customer/reviews/:id - Update own review
-  fastify.patch('/:id', async (request) => {
+  fastify.patch('/:id', {
+    schema: {
+      tags: ['Customer Reviews'],
+      summary: 'Update review',
+      description: 'Partial update of a review owned by the authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = updateReviewSchema.parse(request.body);
     const review = await reviewService.update(id, request.storeId, parsed);
@@ -59,7 +80,14 @@ export default async function customerReviewsRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/customer/reviews/:id - Delete own review
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    schema: {
+      tags: ['Customer Reviews'],
+      summary: 'Delete review',
+      description: 'Delete a review owned by the authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     await reviewService.delete(id, request.storeId);
     reply.status(204).send();

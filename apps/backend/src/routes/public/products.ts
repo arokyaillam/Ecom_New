@@ -15,7 +15,13 @@ const idParamSchema = z.strictObject({
 
 export default async function publicProductsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/public/products - List published products
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Public'],
+      summary: 'List published products',
+      description: 'Browse all published products for the current store with pagination',
+    },
+  }, async (request) => {
     if (!request.storeId) {
       return { items: [], total: 0 };
     }
@@ -28,7 +34,13 @@ export default async function publicProductsRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/public/products/:id - Get single published product
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Get published product',
+      description: 'Retrieve a single published product by ID for the current store',
+    },
+  }, async (request, reply) => {
     if (!request.storeId) {
       reply.status(404).send({ error: 'Not Found', code: ErrorCodes.STORE_NOT_FOUND, message: 'Store not found' });
       return;

@@ -15,7 +15,14 @@ const idParamSchema = z.strictObject({
 
 export default async function customerOrdersRoutes(fastify: FastifyInstance) {
   // GET /api/v1/customer/orders - List customer's orders
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Customer Orders'],
+      summary: 'List customer orders',
+      description: 'List orders belonging to the authenticated customer with pagination',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const query = listQuerySchema.parse(request.query);
     const result = await orderService.findByStoreId(request.storeId, query);
     // Filter to only show this customer's orders
@@ -29,7 +36,14 @@ export default async function customerOrdersRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/customer/orders/:id - Get order detail
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', {
+    schema: {
+      tags: ['Customer Orders'],
+      summary: 'Get order detail',
+      description: 'Retrieve a specific order belonging to the authenticated customer',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const order = await orderService.findById(id, request.storeId);
 

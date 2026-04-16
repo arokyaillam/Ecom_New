@@ -13,13 +13,27 @@ const updateProfileSchema = z.strictObject({
 
 export default async function customerProfileRoutes(fastify: FastifyInstance) {
   // GET /api/v1/customer/profile
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Customer Profile'],
+      summary: 'Get profile',
+      description: 'Retrieve the authenticated customer profile details',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const customer = await customerService.findById(request.customerId!, request.storeId);
     return { customer };
   });
 
   // PATCH /api/v1/customer/profile
-  fastify.patch('/', async (request) => {
+  fastify.patch('/', {
+    schema: {
+      tags: ['Customer Profile'],
+      summary: 'Update profile',
+      description: 'Partial update of the authenticated customer profile',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const parsed = updateProfileSchema.parse(request.body);
     // Filter out undefined values
     const updateData: Record<string, string | boolean> = {};

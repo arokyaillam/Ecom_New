@@ -93,14 +93,28 @@ const idParamSchema = z.strictObject({
 
 export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/products
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'List products',
+      description: 'List all products for the authenticated merchant store with optional pagination and publish filter',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const query = listQuerySchema.parse(request.query);
     const result = await productService.findByStoreId(request.storeId, query);
     return result;
   });
 
   // POST /api/v1/merchant/products
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Create product',
+      description: 'Create a new product in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const parsed = createProductSchema.parse(request.body);
     const product = await productService.create({
       ...parsed,
@@ -110,14 +124,28 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/merchant/products/:id
-  fastify.get('/:id', async (request) => {
+  fastify.get('/:id', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Get product detail',
+      description: 'Retrieve a single product by ID for the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const product = await productService.findById(id, request.storeId);
     return { product };
   });
 
   // PATCH /api/v1/merchant/products/:id
-  fastify.patch('/:id', async (request) => {
+  fastify.patch('/:id', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Update product',
+      description: 'Partial update of a product in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = updateProductSchema.parse(request.body);
     const product = await productService.update(id, request.storeId, parsed);
@@ -125,7 +153,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/merchant/products/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Delete product',
+      description: 'Delete a product from the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     await productService.delete(id, request.storeId);
     reply.status(204).send();
@@ -134,7 +169,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   // --- Variant routes ---
 
   // POST /api/v1/merchant/products/:id/variants
-  fastify.post('/:id/variants', async (request, reply) => {
+  fastify.post('/:id/variants', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Create product variant',
+      description: 'Add a new variant to a product in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = createVariantSchema.parse(request.body);
     const variant = await productService.createVariant({
@@ -146,7 +188,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/merchant/products/:productId/variants/:variantId
-  fastify.patch('/:productId/variants/:variantId', async (request) => {
+  fastify.patch('/:productId/variants/:variantId', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Update product variant',
+      description: 'Partial update of a product variant in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const { variantId } = z.strictObject({ variantId: z.string().uuid() }).parse(request.params);
     const parsed = updateVariantSchema.parse(request.body);
     const variant = await productService.updateVariant(variantId, request.storeId, parsed);
@@ -154,7 +203,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/merchant/products/:productId/variants/:variantId
-  fastify.delete('/:productId/variants/:variantId', async (request, reply) => {
+  fastify.delete('/:productId/variants/:variantId', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Delete product variant',
+      description: 'Delete a product variant from the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { variantId } = z.strictObject({ variantId: z.string().uuid() }).parse(request.params);
     await productService.deleteVariant(variantId, request.storeId);
     reply.status(204).send();
@@ -163,7 +219,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   // --- Variant option routes ---
 
   // POST /api/v1/merchant/products/:variantId/options
-  fastify.post('/:variantId/options', async (request, reply) => {
+  fastify.post('/:variantId/options', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Create variant option',
+      description: 'Add a new option to a product variant in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { variantId } = z.strictObject({ variantId: z.string().uuid() }).parse(request.params);
     const parsed = createVariantOptionSchema.parse(request.body);
     const option = await productService.createVariantOption({
@@ -175,7 +238,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/merchant/products/options/:optionId
-  fastify.patch('/options/:optionId', async (request) => {
+  fastify.patch('/options/:optionId', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Update variant option',
+      description: 'Partial update of a product variant option in the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const { optionId } = z.strictObject({ optionId: z.string().uuid() }).parse(request.params);
     const parsed = updateVariantOptionSchema.parse(request.body);
     const option = await productService.updateVariantOption(optionId, request.storeId, parsed);
@@ -183,7 +253,14 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/merchant/products/options/:optionId
-  fastify.delete('/options/:optionId', async (request, reply) => {
+  fastify.delete('/options/:optionId', {
+    schema: {
+      tags: ['Merchant Products'],
+      summary: 'Delete variant option',
+      description: 'Delete a product variant option from the authenticated merchant store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { optionId } = z.strictObject({ optionId: z.string().uuid() }).parse(request.params);
     await productService.deleteVariantOption(optionId, request.storeId);
     reply.status(204).send();

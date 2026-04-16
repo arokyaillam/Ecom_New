@@ -12,7 +12,14 @@ const addWishlistSchema = z.strictObject({
 
 export default async function customerWishlistRoutes(fastify: FastifyInstance) {
   // GET /api/v1/customer/wishlist - Get customer's wishlist
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Customer Wishlist'],
+      summary: 'Get wishlist',
+      description: 'Retrieve the authenticated customer wishlist with product details',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const items = await db.query.wishlists.findMany({
       where: eq(wishlists.customerId, request.customerId!),
       with: {
@@ -23,7 +30,14 @@ export default async function customerWishlistRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/customer/wishlist - Add item to wishlist
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      tags: ['Customer Wishlist'],
+      summary: 'Add to wishlist',
+      description: 'Add a product to the authenticated customer wishlist',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const parsed = addWishlistSchema.parse(request.body);
 
     // Check if already in wishlist
@@ -53,7 +67,14 @@ export default async function customerWishlistRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/customer/wishlist/:productId - Remove from wishlist
-  fastify.delete('/:productId', async (request, reply) => {
+  fastify.delete('/:productId', {
+    schema: {
+      tags: ['Customer Wishlist'],
+      summary: 'Remove from wishlist',
+      description: 'Remove a product from the authenticated customer wishlist',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const { productId } = z.strictObject({ productId: z.string().uuid() }).parse(request.params);
 
     await db.delete(wishlists).where(

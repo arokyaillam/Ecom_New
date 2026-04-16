@@ -4,7 +4,13 @@ import { storeService } from '../../services/store.service.js';
 
 export default async function publicStoreRoutes(fastify: FastifyInstance) {
   // GET /api/v1/public/store - Get public store info
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Public'],
+      summary: 'Get store info',
+      description: 'Get public store information resolved from Host header',
+    },
+  }, async (request) => {
     // storeId is set by the public scope hook from domain resolution
     if (!request.storeId) {
       return { store: null, message: 'Store not found for this domain' };

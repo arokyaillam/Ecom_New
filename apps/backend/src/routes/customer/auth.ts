@@ -46,7 +46,13 @@ export default async function customerAuthRoutes(fastify: FastifyInstance) {
   }
 
   // POST /api/v1/customer/auth/login
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: {
+      tags: ['Customer Auth'],
+      summary: 'Login as customer',
+      description: 'Authenticate a customer with email and password for a specific store domain',
+    },
+  }, async (request, reply) => {
     const parsed = loginSchema.parse(request.body);
     const storeId = await resolveStoreId(request);
 
@@ -86,7 +92,13 @@ export default async function customerAuthRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/customer/auth/register
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    schema: {
+      tags: ['Customer Auth'],
+      summary: 'Register as customer',
+      description: 'Create a new customer account for a specific store domain',
+    },
+  }, async (request, reply) => {
     const parsed = registerSchema.parse(request.body);
     const storeId = await resolveStoreId(request);
 
@@ -125,13 +137,26 @@ export default async function customerAuthRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/customer/auth/logout
-  fastify.post('/logout', async (_request, reply) => {
+  fastify.post('/logout', {
+    schema: {
+      tags: ['Customer Auth'],
+      summary: 'Logout as customer',
+      description: 'Clear the customer session cookie and end the authenticated session',
+    },
+  }, async (_request, reply) => {
     reply.clearCookie('token', { path: '/' });
     return { success: true };
   });
 
   // GET /api/v1/customer/auth/me
-  fastify.get('/me', async (request, reply) => {
+  fastify.get('/me', {
+    schema: {
+      tags: ['Customer Auth'],
+      summary: 'Get current customer',
+      description: 'Retrieve the currently authenticated customer profile',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const customerId = request.customerId!;
 
     const customer = await db.query.customers.findFirst({

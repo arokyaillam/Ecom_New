@@ -31,7 +31,14 @@ const updateStoreSchema = z.strictObject({
 
 export default async function merchantStoreRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/store
-  fastify.get('/', async (request) => {
+  fastify.get('/', {
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Get store details',
+      description: 'Retrieve the authenticated merchant store information, excluding sensitive owner fields',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const store = await storeService.findByIdOrFail(request.storeId);
     // Strip sensitive owner fields from response
     const { ownerEmail, ownerName, ownerPhone, ...publicStore } = store;
@@ -39,7 +46,14 @@ export default async function merchantStoreRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/merchant/store
-  fastify.patch('/', async (request) => {
+  fastify.patch('/', {
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Update store details',
+      description: 'Partial update of the authenticated merchant store settings including branding and theme',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
     const parsed = updateStoreSchema.parse(request.body);
     const store = await storeService.update(request.storeId, parsed);
 

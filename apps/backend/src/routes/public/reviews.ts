@@ -14,7 +14,13 @@ const idParamSchema = z.strictObject({
 
 export default async function publicReviewsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/public/reviews/product/:id - Get reviews for a product
-  fastify.get('/product/:id', async (request) => {
+  fastify.get('/product/:id', {
+    schema: {
+      tags: ['Public'],
+      summary: 'List product reviews',
+      description: 'Browse published reviews for a specific product in the current store',
+    },
+  }, async (request) => {
     if (!request.storeId) {
       return { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
     }

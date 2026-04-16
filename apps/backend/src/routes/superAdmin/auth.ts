@@ -14,7 +14,13 @@ const loginSchema = z.strictObject({
 
 export default async function superAdminAuthRoutes(fastify: FastifyInstance) {
   // POST /api/v1/admin/auth/login
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: {
+      tags: ['SuperAdmin Auth'],
+      summary: 'Login as super admin',
+      description: 'Authenticate a super admin user with email and password to receive an httpOnly session cookie',
+    },
+  }, async (request, reply) => {
     const parsed = loginSchema.parse(request.body);
 
     const admin = await authService.verifySuperAdminCredentials(parsed.email, parsed.password);
@@ -48,13 +54,26 @@ export default async function superAdminAuthRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/admin/auth/logout
-  fastify.post('/logout', async (_request, reply) => {
+  fastify.post('/logout', {
+    schema: {
+      tags: ['SuperAdmin Auth'],
+      summary: 'Logout as super admin',
+      description: 'Clear the super admin session cookie and end the authenticated session',
+    },
+  }, async (_request, reply) => {
     reply.clearCookie('token', { path: '/' });
     return { success: true };
   });
 
   // GET /api/v1/admin/auth/me
-  fastify.get('/me', async (request, reply) => {
+  fastify.get('/me', {
+    schema: {
+      tags: ['SuperAdmin Auth'],
+      summary: 'Get current super admin',
+      description: 'Retrieve the currently authenticated super admin profile',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
     const adminId = request.superAdminId!;
 
     const admin = await db.query.superAdmins.findFirst({
