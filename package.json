@@ -1,0 +1,30 @@
+{
+  "name": "saas-ecommerce",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter backend db:generate",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:studio": "pnpm --filter backend db:studio",
+    "db:seed": "pnpm --filter backend db:seed",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "check:security": "pnpm run check:console && pnpm run check:types && pnpm run check:storeid && pnpm run check:prehandler",
+    "check:console": "grep -r 'console.log' apps/backend/src/ && echo 'Found console.log' || echo 'No console.log found'",
+    "check:types": "pnpm --filter backend typecheck",
+    "check:storeid": "grep -r 'body.storeId' apps/backend/src/ && echo 'Found body.storeId' || echo 'No body.storeId found'",
+    "check:prehandler": "grep -r 'preHandler' apps/backend/src/routes/ && echo 'Found inline preHandler' || echo 'No inline preHandler found'"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.5"
+  }
+}

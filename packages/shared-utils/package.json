@@ -1,0 +1,16 @@
+{
+  "name": "shared-utils",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "echo 'shared-utils: no build needed'",
+    "clean": "echo 'shared-utils: nothing to clean'"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
