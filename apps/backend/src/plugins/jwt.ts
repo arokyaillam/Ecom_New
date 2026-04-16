@@ -11,6 +11,9 @@ export default fp(async function jwtPlugin(fastify: FastifyInstance) {
   // Register JWT plugin
   await fastify.register(jwt, {
     secret: env.JWT_SECRET,
+    sign: {
+      expiresIn: '7d',   // Token expires in 7 days — matches cookie maxAge
+    },
     cookie: {
       cookieName: 'token',
       signed: false,

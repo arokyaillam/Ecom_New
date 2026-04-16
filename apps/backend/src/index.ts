@@ -14,6 +14,11 @@ import { createQueueService } from './services/queue.service.js';
 import { createEmailService } from './services/email.service.js';
 import { createUploadService } from './services/upload.service.js';
 import { storeService } from './services/store.service.js';
+import { authResetService } from './services/authReset.service.js';
+import { staffService } from './services/staff.service.js';
+import { shippingService } from './services/shipping.service.js';
+import { taxService } from './services/tax.service.js';
+import { addressService } from './services/address.service.js';
 import { sql } from 'drizzle-orm';
 
 const fastify = Fastify({
@@ -34,6 +39,11 @@ fastify.decorate('queueService', queueService);
 fastify.decorate('emailService', emailService);
 fastify.decorate('uploadService', uploadService);
 fastify.decorate('storeService', storeService);
+fastify.decorate('authResetService', authResetService);
+fastify.decorate('staffService', staffService);
+fastify.decorate('shippingService', shippingService);
+fastify.decorate('taxService', taxService);
+fastify.decorate('addressService', addressService);
 
 // Health check endpoints (no auth)
 fastify.get('/health', async () => ({
@@ -53,13 +63,58 @@ fastify.get('/health/ready', async (_request, reply) => {
   }
 });
 
-// Register scopes (each is encapsulated)
-await fastify.register(publicScope, { prefix: '/api/v1/public' });
-await fastify.register(merchantScope, { prefix: '/api/v1/merchant' });
-await fastify.register(customerScope, { prefix: '/api/v1/customer' });
-await fastify.register(superAdminScope, { prefix: '/api/v1/admin' });
+// Detailed health check - database, redis, queue, memory
+fastify.get('/health/detailed', async () => {
+  const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
 
-// Error handler
+  // Database check
+  const dbStart = Date.now();
+  try {
+    await db.execute(sql`SELECT 1`);
+    checks.database = { status: 'ok', latencyMs: Date.now() - dbStart };
+  } catch (err) {
+    checks.database = { status: 'error', error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+
+  // Redis check
+  const redisStart = Date.now();
+  try {
+    await fastify.redis.ping();
+    checks.redis = { status: 'ok', latencyMs: Date.now() - redisStart };
+  } catch (err) {
+    checks.redis = { status: 'error', error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+
+  // Queue check (verify queues are reachable via Redis)
+  try {
+    const queueCount = await queueService.emailQueue.getJobCounts();
+    checks.queue = { status: queueCount ? 'ok' : 'error' };
+  } catch (err) {
+    checks.queue = { status: 'error', error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+
+  // Memory usage
+  const mem = process.memoryUsage();
+  checks.memory = {
+    status: mem.rss < 512 * 1024 * 1024 ? 'ok' : 'warning',
+  };
+
+  const allOk = Object.values(checks).every((c) => c.status === 'ok');
+
+  return {
+    status: allOk ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks,
+    memory: {
+      rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+    },
+  };
+});
+
+// Error handler - MUST be registered BEFORE scopes so it catches all errors
 fastify.setErrorHandler((error: unknown, _request, reply) => {
   // Handle Zod validation errors as 400 Bad Request
   if (error && typeof error === 'object' && 'issues' in (error as object)) {
@@ -73,10 +128,78 @@ fastify.setErrorHandler((error: unknown, _request, reply) => {
   }
 
   // Handle custom error codes (thrown by services with .code property)
-  fastify.log.error(error);
   const err = error instanceof Error ? error : new Error(String(error));
-  const statusCode = 'statusCode' in err ? (err as unknown as { statusCode: number }).statusCode : 500;
   const code = 'code' in err ? (err as unknown as { code: string }).code : undefined;
+
+  // Map error codes to HTTP status codes
+  const codeToStatus: Record<string, number> = {
+    // 400 Bad Request
+    VALIDATION_ERROR: 400,
+    INVALID_FILE_TYPE: 400,
+    FILE_TOO_LARGE: 400,
+    // 401 Unauthorized
+    INVALID_CREDENTIALS: 401,
+    TOKEN_EXPIRED: 401,
+    TOKEN_INVALID: 401,
+    VERIFICATION_TOKEN_EXPIRED: 401,
+    PASSWORD_RESET_EXPIRED: 401,
+    EMAIL_NOT_VERIFIED: 401,
+    // 403 Forbidden
+    INSUFFICIENT_PERMISSIONS: 403,
+    STORE_SUSPENDED: 403,
+    PLAN_EXPIRED: 403,
+    PERMISSION_DENIED: 403,
+    EMAIL_ALREADY_VERIFIED: 403,
+    CANNOT_REMOVE_OWNER: 403,
+    // 404 Not Found
+    STORE_NOT_FOUND: 404,
+    PRODUCT_NOT_FOUND: 404,
+    ORDER_NOT_FOUND: 404,
+    CUSTOMER_NOT_FOUND: 404,
+    CATEGORY_NOT_FOUND: 404,
+    MODIFIER_GROUP_NOT_FOUND: 404,
+    REVIEW_NOT_FOUND: 404,
+    USER_NOT_FOUND: 404,
+    ADMIN_NOT_FOUND: 404,
+    PLAN_NOT_FOUND: 404,
+    MERCHANT_NOT_FOUND: 404,
+    STAFF_NOT_FOUND: 404,
+    STAFF_INVITE_NOT_FOUND: 404,
+    STAFF_INVITE_EXPIRED: 404,
+    CART_NOT_FOUND: 404,
+    CART_ITEM_NOT_FOUND: 404,
+    // 409 Conflict
+    USER_ALREADY_EXISTS: 409,
+    CUSTOMER_ALREADY_EXISTS: 409,
+    WISHLIST_ITEM_EXISTS: 409,
+    ORDER_ALREADY_FULFILLED: 409,
+    ORDER_CANCELLED: 409,
+    COUPON_USAGE_EXCEEDED: 409,
+    // 410 Gone
+    COUPON_EXPIRED: 410,
+    PRODUCT_UNPUBLISHED: 410,
+    // 422 Unprocessable
+    INVALID_COUPON: 422,
+    INSUFFICIENT_INVENTORY: 422,
+    SHIPPING_NOT_CALCULABLE: 422,
+    // 404 (additional)
+    ZONE_NOT_FOUND: 404,
+    RATE_NOT_FOUND: 404,
+    TAX_RATE_NOT_FOUND: 404,
+    ADDRESS_NOT_FOUND: 404,
+  };
+
+  // Priority: custom code mapping > Fastify's statusCode > default 500
+  const statusCode = (code && codeToStatus[code])
+    || ('statusCode' in err ? (err as unknown as { statusCode: number }).statusCode : null)
+    || 500;
+
+  // Only log 500-level errors at error level
+  if (statusCode >= 500) {
+    fastify.log.error(error);
+  } else {
+    fastify.log.debug(error);
+  }
 
   reply.status(statusCode).send({
     error: err.name || 'Internal Server Error',
@@ -84,6 +207,12 @@ fastify.setErrorHandler((error: unknown, _request, reply) => {
     message: env.isProduction ? 'An error occurred' : err.message,
   });
 });
+
+// Register scopes (each is encapsulated)
+await fastify.register(publicScope, { prefix: '/api/v1/public' });
+await fastify.register(merchantScope, { prefix: '/api/v1/merchant' });
+await fastify.register(customerScope, { prefix: '/api/v1/customer' });
+await fastify.register(superAdminScope, { prefix: '/api/v1/admin' });
 
 // Start server
 try {

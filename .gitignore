@@ -13,4 +13,6 @@ coverage/
 
 # Claude Code config (local only)
 .claude/
-.claude-fixed/
+.claude-fixed/.playwright-mcp/
+playwright.config.ts
+test-api.sh

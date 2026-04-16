@@ -1,7 +1,8 @@
-// Merchant Auth Routes - Login, Register, Logout
+// Merchant Auth Routes - Login, Register, Logout, Verify Email, Password Reset
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authService } from '../../services/auth.service.js';
+import { authResetService } from '../../services/authReset.service.js';
 import { ErrorCodes } from '../../errors/codes.js';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
@@ -27,6 +28,9 @@ const registerSchema = z.strictObject({
 export default async function merchantAuthRoutes(fastify: FastifyInstance) {
   // POST /api/v1/merchant/auth/login
   fastify.post('/login', {
+    config: {
+      rateLimit: { max: 5, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['Merchant Auth'],
       summary: 'Login as merchant',
@@ -65,6 +69,9 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/auth/register
   fastify.post('/register', {
+    config: {
+      rateLimit: { max: 3, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['Merchant Auth'],
       summary: 'Register a merchant',
@@ -146,5 +153,61 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
         role: currentUser.role,
       },
     };
+  });
+
+  // ─── Email Verification ───
+
+  const verifyEmailSchema = z.strictObject({ token: z.string().min(1) });
+  const emailSchema = z.strictObject({ email: z.email() });
+  const resetPasswordSchema = z.strictObject({
+    token: z.string().min(1),
+    password: z.string().min(8).regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      'Password must contain uppercase, lowercase, and number',
+    ),
+  });
+
+  // POST /api/v1/merchant/auth/verify-email
+  fastify.post('/verify-email', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Verify merchant email',
+      description: 'Verify a merchant email address using the token sent via email',
+    },
+  }, async (request) => {
+    const { token } = verifyEmailSchema.parse(request.body);
+    const result = await authResetService.verifyEmail(token);
+    return { success: true, ...result };
+  });
+
+  // POST /api/v1/merchant/auth/forgot-password
+  fastify.post('/forgot-password', {
+    config: { rateLimit: { max: 3, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Request password reset',
+      description: 'Request a password reset token sent to the merchant email',
+    },
+  }, async (request) => {
+    const { email } = emailSchema.parse(request.body);
+    await authResetService.requestPasswordReset(email, undefined, 'merchant');
+    // Always return success to prevent email enumeration
+    // TODO: Queue reset email via emailService
+    return { success: true, message: 'If an account with that email exists, a reset link has been sent' };
+  });
+
+  // POST /api/v1/merchant/auth/reset-password
+  fastify.post('/reset-password', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Merchant Auth'],
+      summary: 'Reset password',
+      description: 'Reset merchant password using the token from the reset email',
+    },
+  }, async (request) => {
+    const { token, password } = resetPasswordSchema.parse(request.body);
+    const result = await authResetService.resetPassword(token, password);
+    return { success: true, ...result };
   });
 }

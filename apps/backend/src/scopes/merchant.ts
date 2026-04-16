@@ -7,9 +7,18 @@ import { ErrorCodes } from '../errors/codes.js';
 export default async function merchantScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   // JWT verification hook - runs on ALL merchant routes EXCEPT login/register/logout
   fastify.addHook('onRequest', async (request, reply) => {
-    // Skip auth for login, register, and logout routes only
+    // Skip auth for login, register, logout, verify-email, forgot-password, reset-password
     const url = request.url;
-    if (url.endsWith('/auth/login') || url.endsWith('/auth/register') || url.endsWith('/auth/logout')) {
+    if (
+      url.endsWith('/auth/login') ||
+      url.endsWith('/auth/register') ||
+      url.endsWith('/auth/logout') ||
+      url.endsWith('/auth/verify-email') ||
+      url.endsWith('/auth/forgot-password') ||
+      url.endsWith('/auth/reset-password') ||
+      // Staff invitation accept/reject (no auth - new user)
+      url.includes('/staff/invitations/')
+    ) {
       return;
     }
     try {
@@ -58,6 +67,10 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
       request.storeId = decoded.storeId;
       request.userId = decoded.userId;
       request.userRole = decoded.role;
+      // OWNER has all permissions; others get defaults
+      if (decoded.role === 'OWNER') {
+        request.userPermissions = ['*'];
+      }
     } catch (err) {
       fastify.log.warn({ err }, 'Authentication failed');
       reply.status(401).send({
@@ -81,4 +94,7 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
   fastify.register(import('../routes/merchant/coupons.js'), { prefix: '/coupons' });
   fastify.register(import('../routes/merchant/analytics.js'), { prefix: '/analytics' });
   fastify.register(import('../routes/merchant/upload.js'), { prefix: '/upload' });
+  fastify.register(import('../routes/merchant/staff.js'), { prefix: '/staff' });
+  fastify.register(import('../routes/merchant/shipping.js'), { prefix: '/shipping' });
+  fastify.register(import('../routes/merchant/tax.js'), { prefix: '/tax' });
 }

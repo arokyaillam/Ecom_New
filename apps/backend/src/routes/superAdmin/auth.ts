@@ -15,6 +15,9 @@ const loginSchema = z.strictObject({
 export default async function superAdminAuthRoutes(fastify: FastifyInstance) {
   // POST /api/v1/admin/auth/login
   fastify.post('/login', {
+    config: {
+      rateLimit: { max: 5, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['SuperAdmin Auth'],
       summary: 'Login as super admin',

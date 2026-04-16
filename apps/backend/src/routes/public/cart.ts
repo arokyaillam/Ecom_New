@@ -49,6 +49,11 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
       description: 'Retrieve the current guest cart or create a new one using a cookie-based session',
     },
   }, async (request, reply) => {
+    if (!request.storeId) {
+      reply.status(400).send({ error: 'Bad Request', code: ErrorCodes.STORE_NOT_FOUND, message: 'Store not found. Please access via your store domain.' });
+      return;
+    }
+
     let cartId = request.cookies.cartId;
 
     if (cartId) {
@@ -64,7 +69,7 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
 
     // Create a new cart
     const [newCart] = await db.insert(carts).values({
-      storeId: request.storeId || '00000000-0000-0000-0000-000000000000',
+      storeId: request.storeId,
       sessionId: crypto.randomUUID(),
       subtotal: '0',
       total: '0',
@@ -90,13 +95,18 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
       description: 'Add a product item to the guest cart, creating the cart if needed',
     },
   }, async (request, reply) => {
+    if (!request.storeId) {
+      reply.status(400).send({ error: 'Bad Request', code: ErrorCodes.STORE_NOT_FOUND, message: 'Store not found. Please access via your store domain.' });
+      return;
+    }
+
     const parsed = addItemSchema.parse(request.body);
     let cartId = request.cookies.cartId;
 
     // Create cart if not exists
     if (!cartId) {
       const [newCart] = await db.insert(carts).values({
-        storeId: request.storeId || '00000000-0000-0000-0000-000000000000',
+        storeId: request.storeId,
         sessionId: crypto.randomUUID(),
         subtotal: '0',
         total: '0',

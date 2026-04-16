@@ -8,6 +8,20 @@
       "when": 1776318464378,
       "tag": "0000_magical_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776342387279,
+      "tag": "0001_lovely_xorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776346557014,
+      "tag": "0002_flimsy_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

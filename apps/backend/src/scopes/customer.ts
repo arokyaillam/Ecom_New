@@ -7,9 +7,17 @@ import { ErrorCodes } from '../errors/codes.js';
 export default async function customerScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   // Customer JWT verification hook - runs on ALL customer routes EXCEPT login/register/logout
   fastify.addHook('onRequest', async (request, reply) => {
-    // Skip auth for login, register, and logout routes only
+    // Skip auth for login, register, logout, verify-email, forgot-password, reset-password
+    // NOTE: resend-verification REQUIRES auth (needs customerId from JWT)
     const url = request.url;
-    if (url.endsWith('/auth/login') || url.endsWith('/auth/register') || url.endsWith('/auth/logout')) {
+    if (
+      url.endsWith('/auth/login') ||
+      url.endsWith('/auth/register') ||
+      url.endsWith('/auth/logout') ||
+      url.endsWith('/auth/verify-email') ||
+      url.endsWith('/auth/forgot-password') ||
+      url.endsWith('/auth/reset-password')
+    ) {
       return;
     }
     try {
@@ -46,4 +54,5 @@ export default async function customerScope(fastify: FastifyInstance, _opts: Fas
   fastify.register(import('../routes/customer/checkout.js'), { prefix: '/checkout' });
   fastify.register(import('../routes/customer/wishlist.js'), { prefix: '/wishlist' });
   fastify.register(import('../routes/customer/reviews.js'), { prefix: '/reviews' });
+  fastify.register(import('../routes/customer/addresses.js'), { prefix: '/addresses' });
 }

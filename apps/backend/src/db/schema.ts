@@ -700,3 +700,146 @@ export const superAdminsRelations = relations(superAdmins, ({ many }) => ({
 export const merchantPlansRelations = relations(merchantPlans, ({ many }) => ({
   stores: many(stores),
 }));
+
+// ─── Phase 1: Auth Reset/Verify + Staff Roles ───
+
+export const verificationTokens = pgTable("verification_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  type: text("type").notNull(), // 'email_verification' | 'password_reset'
+  userType: text("user_type").notNull(), // 'customer' | 'merchant'
+  storeId: uuid("store_id"), // nullable for merchant-level (no store context yet)
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const staffInvitations = pgTable("staff_invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").notNull(),
+  email: text("email").notNull(),
+  role: text("role").notNull(), // 'MANAGER' | 'CASHIER'
+  invitedBy: uuid("invited_by").notNull(),
+  token: text("token").notNull().unique(),
+  status: text("status").default("pending"), // 'pending' | 'accepted' | 'rejected' | 'expired'
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  userId: uuid("user_id"), // set when invitation accepted
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const rolePermissions = pgTable("role_permissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").notNull(),
+  role: text("role").notNull(), // 'OWNER' | 'MANAGER' | 'CASHIER'
+  permissions: json("permissions").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Phase 1 Relations ───
+
+export const verificationTokensRelations = relations(verificationTokens, ({ one }) => ({
+  store: one(stores, {
+    fields: [verificationTokens.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export const staffInvitationsRelations = relations(staffInvitations, ({ one }) => ({
+  store: one(stores, {
+    fields: [staffInvitations.storeId],
+    references: [stores.id],
+  }),
+  inviter: one(users, {
+    fields: [staffInvitations.invitedBy],
+    references: [users.id],
+  }),
+  acceptedUser: one(users, {
+    fields: [staffInvitations.userId],
+    references: [users.id],
+  }),
+}));
+
+export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
+  store: one(stores, {
+    fields: [rolePermissions.storeId],
+    references: [stores.id],
+  }),
+}));
+
+// ─── Phase 2: Shipping Zones + Tax Config ───
+
+export const shippingZones = pgTable("shipping_zones", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  name: text("name").notNull(),
+  countries: json("countries").$type<string[]>().default([]),
+  states: json("states").$type<string[]>().default([]),
+  postalCodePatterns: json("postal_code_patterns").$type<string[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const shippingRates = pgTable("shipping_rates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  zoneId: uuid("zone_id").references(() => shippingZones.id, { onDelete: "cascade" }).notNull(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  name: text("name").notNull(),
+  method: text("method").notNull(), // 'standard' | 'express' | 'overnight' | 'pickup'
+  carrier: text("carrier"), // 'fedex' | 'ups' | 'dhl' | 'usps' | null (custom)
+  price: decimal("price").notNull(),
+  freeAbove: decimal("free_above"), // free shipping if order subtotal >= this
+  weightBased: boolean("weight_based").default(false),
+  pricePerKg: decimal("price_per_kg"),
+  estimatedDays: integer("estimated_days"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const taxRates = pgTable("tax_rates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  name: text("name").notNull(),
+  rate: decimal("rate").notNull(), // e.g. "0.0825" for 8.25%
+  country: text("country"), // ISO 3166-1 alpha-2, null = applies to all
+  state: text("state"), // ISO 3166-2 subdivision code
+  postalCode: text("postal_code"), // specific postal code or pattern
+  isCompound: boolean("is_compound").default(false), // compound on top of other taxes
+  priority: integer("priority").default(1), // lower = applied first
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Phase 2 Relations ───
+
+export const shippingZonesRelations = relations(shippingZones, ({ one, many }) => ({
+  store: one(stores, {
+    fields: [shippingZones.storeId],
+    references: [stores.id],
+  }),
+  rates: many(shippingRates),
+}));
+
+export const shippingRatesRelations = relations(shippingRates, ({ one }) => ({
+  zone: one(shippingZones, {
+    fields: [shippingRates.zoneId],
+    references: [shippingZones.id],
+  }),
+  store: one(stores, {
+    fields: [shippingRates.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export const taxRatesRelations = relations(taxRates, ({ one }) => ({
+  store: one(stores, {
+    fields: [taxRates.storeId],
+    references: [stores.id],
+  }),
+}));

@@ -8,6 +8,11 @@ import type { QueueService } from '../services/queue.service.js';
 import type { EmailService } from '../services/email.service.js';
 import type { UploadService } from '../services/upload.service.js';
 import type { storeService } from '../services/store.service.js';
+import type { authResetService } from '../services/authReset.service.js';
+import type { staffService } from '../services/staff.service.js';
+import type { shippingService } from '../services/shipping.service.js';
+import type { taxService } from '../services/tax.service.js';
+import type { addressService } from '../services/address.service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -15,6 +20,7 @@ declare module 'fastify' {
     storeId: string;
     userId: string;
     userRole: string;
+    userPermissions?: string[];
 
     // Set by customer scope hook (from JWT)
     customerId?: string;
@@ -30,6 +36,11 @@ declare module 'fastify' {
     emailService: EmailService;
     uploadService: UploadService;
     storeService: typeof storeService;
+    authResetService: typeof authResetService;
+    staffService: typeof staffService;
+    shippingService: typeof shippingService;
+    taxService: typeof taxService;
+    addressService: typeof addressService;
   }
 }
 
