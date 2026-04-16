@@ -4,6 +4,14 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { FastifyInstance } from 'fastify';
 import { jsonSchemaTransform } from 'fastify-type-provider-zod';
+import { createRequire } from 'module';
+import path from 'path';
+import fs from 'fs';
+
+// Resolve static assets path (ESM-compatible with pnpm)
+const require = createRequire(import.meta.url);
+const swaggerUiDir = path.dirname(require.resolve('@fastify/swagger-ui/package.json'));
+const staticDir = path.join(swaggerUiDir, 'static');
 
 export default fp(async function swaggerPlugin(fastify: FastifyInstance) {
   await fastify.register(swagger, {
@@ -60,6 +68,7 @@ export default fp(async function swaggerPlugin(fastify: FastifyInstance) {
 
   await fastify.register(swaggerUi, {
     routePrefix: '/documentation',
+    baseDir: staticDir,
     uiConfig: {
       docExpansion: 'list',
       deepLinking: true,
@@ -68,4 +77,46 @@ export default fp(async function swaggerPlugin(fastify: FastifyInstance) {
     },
     staticCSP: true,
   });
+
+  // Workaround: swagger-ui fails to serve static assets in ESM + pnpm
+  // because @fastify/static resolves __dirname incorrectly.
+  // We manually serve the critical CSS and JS files that the HTML page references.
+  const contentTypes: Record<string, string> = {
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml',
+  };
+
+  // Only serve files that swagger-ui doesn't already register routes for
+  // (index.html and swagger-initializer.js are handled by the plugin itself)
+  const criticalFiles = [
+    'swagger-ui.css',
+    'swagger-ui-bundle.js',
+    'swagger-ui-standalone-preset.js',
+    'index.css',
+    'favicon-16x16.png',
+    'favicon-32x32.png',
+    'logo.svg',
+  ];
+
+  for (const file of criticalFiles) {
+    const filePath = path.join(staticDir, file);
+    if (!fs.existsSync(filePath)) continue;
+
+    const ext = path.extname(file);
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+    const routePath = `/documentation/static/${file}`;
+
+    try {
+      fastify.get(routePath, async (_request, reply) => {
+        const content = fs.readFileSync(filePath);
+        reply.header('Content-Type', contentType);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        return reply.send(content);
+      });
+    } catch {
+      // Route already registered by swagger-ui, skip
+    }
+  }
 }, { name: 'swagger', dependencies: [] });
