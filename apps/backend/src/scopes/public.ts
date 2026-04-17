@@ -27,12 +27,12 @@ export default async function publicScope(fastify: FastifyInstance, _opts: Fasti
     }
   });
 
-  // Register public routes
-  fastify.register(import('../routes/public/store.js'), { prefix: '/store' });
-  fastify.register(import('../routes/public/products.js'), { prefix: '/products' });
-  fastify.register(import('../routes/public/reviews.js'), { prefix: '/reviews' });
-  fastify.register(import('../routes/public/cart.js'), { prefix: '/cart' });
-  fastify.register(import('../routes/public/analytics.js'), { prefix: '/analytics' });
-  fastify.register(import('../routes/public/shipping.js'), { prefix: '/shipping' });
-  fastify.register(import('../routes/public/tax.js'), { prefix: '/tax' });
+  // Register public routes (from modules/)
+  fastify.register(import('../modules/store/store.route.public.js'), { prefix: '/store' });
+  fastify.register(import('../modules/product/product.route.public.js'), { prefix: '/products' });
+  fastify.register(import('../modules/review/review.route.public.js'), { prefix: '/reviews' });
+  fastify.register(import('../modules/cart/cart.route.public.js'), { prefix: '/cart' });
+  fastify.register(import('../modules/analytics/analytics.route.public.js'), { prefix: '/analytics' });
+  fastify.register(import('../modules/shipping/shipping.route.public.js'), { prefix: '/shipping' });
+  fastify.register(import('../modules/tax/tax.route.public.js'), { prefix: '/tax' });
 }

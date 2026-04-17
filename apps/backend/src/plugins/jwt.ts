@@ -9,13 +9,14 @@ export default fp(async function jwtPlugin(fastify: FastifyInstance) {
   await fastify.register(cookie);
 
   // Register JWT plugin
+  // Default sign is for access tokens (15 min). Refresh tokens pass { expiresIn: '7d' } explicitly.
   await fastify.register(jwt, {
     secret: env.JWT_SECRET,
     sign: {
-      expiresIn: '7d',   // Token expires in 7 days — matches cookie maxAge
+      expiresIn: '15m',
     },
     cookie: {
-      cookieName: 'token',
+      cookieName: 'access_token',
       signed: false,
     },
   });

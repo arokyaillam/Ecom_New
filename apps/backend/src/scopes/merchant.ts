@@ -7,7 +7,7 @@ import { ErrorCodes } from '../errors/codes.js';
 export default async function merchantScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   // JWT verification hook - runs on ALL merchant routes EXCEPT login/register/logout
   fastify.addHook('onRequest', async (request, reply) => {
-    // Skip auth for login, register, logout, verify-email, forgot-password, reset-password
+    // Skip auth for login, register, logout, verify-email, forgot-password, reset-password, refresh
     const url = request.url;
     if (
       url.endsWith('/auth/login') ||
@@ -16,6 +16,7 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
       url.endsWith('/auth/verify-email') ||
       url.endsWith('/auth/forgot-password') ||
       url.endsWith('/auth/reset-password') ||
+      url.endsWith('/auth/refresh') ||
       // Staff invitation accept/reject (no auth - new user)
       url.includes('/staff/invitations/')
     ) {
@@ -82,19 +83,19 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
     }
   });
 
-  // Register merchant routes
-  fastify.register(import('../routes/merchant/auth.js'), { prefix: '/auth' });
-  fastify.register(import('../routes/merchant/store.js'), { prefix: '/store' });
-  fastify.register(import('../routes/merchant/products.js'), { prefix: '/products' });
-  fastify.register(import('../routes/merchant/categories.js'), { prefix: '/categories' });
-  fastify.register(import('../routes/merchant/modifiers.js'), { prefix: '/modifiers' });
-  fastify.register(import('../routes/merchant/orders.js'), { prefix: '/orders' });
-  fastify.register(import('../routes/merchant/customers.js'), { prefix: '/customers' });
-  fastify.register(import('../routes/merchant/reviews.js'), { prefix: '/reviews' });
-  fastify.register(import('../routes/merchant/coupons.js'), { prefix: '/coupons' });
-  fastify.register(import('../routes/merchant/analytics.js'), { prefix: '/analytics' });
-  fastify.register(import('../routes/merchant/upload.js'), { prefix: '/upload' });
-  fastify.register(import('../routes/merchant/staff.js'), { prefix: '/staff' });
-  fastify.register(import('../routes/merchant/shipping.js'), { prefix: '/shipping' });
-  fastify.register(import('../routes/merchant/tax.js'), { prefix: '/tax' });
+  // Register merchant routes (from modules/)
+  fastify.register(import('../modules/auth/auth.route.merchant.js'), { prefix: '/auth' });
+  fastify.register(import('../modules/store/store.route.merchant.js'), { prefix: '/store' });
+  fastify.register(import('../modules/product/product.route.merchant.js'), { prefix: '/products' });
+  fastify.register(import('../modules/category/category.route.merchant.js'), { prefix: '/categories' });
+  fastify.register(import('../modules/modifier/modifier.route.merchant.js'), { prefix: '/modifiers' });
+  fastify.register(import('../modules/order/order.route.merchant.js'), { prefix: '/orders' });
+  fastify.register(import('../modules/customer/customer.route.merchant.js'), { prefix: '/customers' });
+  fastify.register(import('../modules/review/review.route.merchant.js'), { prefix: '/reviews' });
+  fastify.register(import('../modules/coupon/coupon.route.merchant.js'), { prefix: '/coupons' });
+  fastify.register(import('../modules/analytics/analytics.route.merchant.js'), { prefix: '/analytics' });
+  fastify.register(import('../modules/upload/upload.route.merchant.js'), { prefix: '/upload' });
+  fastify.register(import('../modules/staff/staff.route.merchant.js'), { prefix: '/staff' });
+  fastify.register(import('../modules/shipping/shipping.route.merchant.js'), { prefix: '/shipping' });
+  fastify.register(import('../modules/tax/tax.route.merchant.js'), { prefix: '/tax' });
 }

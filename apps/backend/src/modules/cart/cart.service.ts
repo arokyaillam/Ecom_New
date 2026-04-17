@@ -1,0 +1,171 @@
+// Cart service — business logic, domain errors, cart computation.
+// Calls cartRepo for all DB operations. Uses pricingService for price verification.
+import { ErrorCodes } from '../../errors/codes.js';
+import { addDecimals, multiplyDecimalByInt } from '../../lib/decimal.js';
+import { cartRepo } from './cart.repo.js';
+import { pricingService } from '../pricing/pricing.service.js';
+
+export const cartService = {
+  /**
+   * Get an existing cart or create a new one.
+   * Returns the cart with items and whether a new cart was created.
+   */
+  async getOrCreateCart(cartId: string | undefined, storeId: string) {
+    if (cartId) {
+      const existingCart = await cartRepo.findCartById(cartId);
+      if (existingCart) {
+        return { cart: existingCart, isNew: false };
+      }
+    }
+
+    // Create a new cart
+    const newCart = await cartRepo.insertCart({
+      storeId,
+      sessionId: crypto.randomUUID(),
+      subtotal: '0',
+      total: '0',
+      itemCount: 0,
+    });
+
+    return { cart: { ...newCart, items: [] }, isNew: true };
+  },
+
+  /**
+   * Recalculate cart totals from the current cart items.
+   * Reads all items, sums totals, and updates the cart record.
+   */
+  async recalculateTotals(cartId: string) {
+    const items = await cartRepo.findCartItemsByCartId(cartId);
+
+    let subtotal = '0.00';
+    for (const item of items) {
+      subtotal = addDecimals(subtotal, item.total);
+    }
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    return cartRepo.updateCartTotals(cartId, subtotal, subtotal, itemCount);
+  },
+
+  /**
+   * Add an item to the cart. Verifies price server-side via pricingService.
+   * If the same product with identical modifiers already exists, increments quantity.
+   * Returns the updated cart and the affected item.
+   */
+  async addItem(
+    cartId: string,
+    storeId: string,
+    params: {
+      productId: string;
+      quantity: number;
+      variantOptionIds?: string[];
+      combinationKey?: string;
+      modifierOptionIds?: string[];
+    },
+  ) {
+    // Compute verified price for this item
+    const itemPricing = await pricingService.computeItemPrice({
+      storeId,
+      productId: params.productId,
+      variantOptionIds: params.variantOptionIds,
+      combinationKey: params.combinationKey,
+      modifierOptionIds: params.modifierOptionIds,
+      quantity: params.quantity,
+    });
+
+    const price = itemPricing.effectivePrice;
+    const itemTotal = itemPricing.lineTotal;
+
+    // Build modifiers JSON for matching
+    const modifiersJson = (params.variantOptionIds || params.modifierOptionIds)
+      ? JSON.stringify({
+          variantOptionIds: params.variantOptionIds,
+          combinationKey: params.combinationKey,
+          modifierOptionIds: params.modifierOptionIds,
+        })
+      : null;
+
+    // Check if item with same productId + modifiers already exists in cart
+    const existingItems = await cartRepo.findCartItemsByProductId(cartId, params.productId);
+
+    const existingItem = existingItems.find((item) => {
+      if (!modifiersJson && !item.modifiers) return true;
+      if (modifiersJson && item.modifiers) {
+        try {
+          const existing = typeof item.modifiers === 'string' ? JSON.parse(item.modifiers) : item.modifiers;
+          const incoming = JSON.parse(modifiersJson);
+          return JSON.stringify(existing) === JSON.stringify(incoming);
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    });
+
+    if (existingItem) {
+      // Increment quantity of existing item
+      const newQuantity = existingItem.quantity + params.quantity;
+      const newTotal = multiplyDecimalByInt(price, newQuantity);
+      const updated = await cartRepo.updateCartItem(existingItem.id, {
+        quantity: newQuantity,
+        total: newTotal,
+      });
+
+      await cartService.recalculateTotals(cartId);
+
+      const cart = await cartRepo.findCartById(cartId);
+      return { cart, item: updated };
+    }
+
+    // Add new item
+    const item = await cartRepo.insertCartItem({
+      cartId,
+      productId: params.productId,
+      quantity: params.quantity,
+      price,
+      total: itemTotal,
+      modifiers: modifiersJson,
+    });
+
+    await cartService.recalculateTotals(cartId);
+
+    const cart = await cartRepo.findCartById(cartId);
+    return { cart, item };
+  },
+
+  /**
+   * Update the quantity of a cart item.
+   * Recomputes total from the stored (server-verified) price.
+   */
+  async updateItemQuantity(cartId: string, itemId: string, quantity: number) {
+    const item = await cartRepo.findCartItemById(itemId, cartId);
+
+    if (!item) {
+      throw Object.assign(new Error('Cart item not found'), {
+        code: ErrorCodes.CART_ITEM_NOT_FOUND,
+      });
+    }
+
+    // Recompute total from stored (server-verified) price x new quantity
+    const newTotal = multiplyDecimalByInt(item.price, quantity);
+    const updated = await cartRepo.updateCartItem(itemId, {
+      quantity,
+      total: newTotal,
+    });
+
+    await cartService.recalculateTotals(cartId);
+
+    const cart = await cartRepo.findCartById(cartId);
+    return { cart, item: updated };
+  },
+
+  /**
+   * Remove an item from the cart.
+   */
+  async removeItem(cartId: string, itemId: string) {
+    await cartRepo.deleteCartItem(itemId, cartId);
+    await cartService.recalculateTotals(cartId);
+
+    const cart = await cartRepo.findCartById(cartId);
+    return { cart };
+  },
+};

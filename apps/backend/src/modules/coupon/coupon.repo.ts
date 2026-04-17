@@ -1,0 +1,60 @@
+// Coupon repository — Drizzle queries only, no business logic
+import { db } from '../../db/index.js';
+import { coupons } from '../../db/schema.js';
+import { eq, and, desc, count } from 'drizzle-orm';
+
+export type CouponSelect = typeof coupons.$inferSelect;
+export type CouponInsert = typeof coupons.$inferInsert;
+
+export const couponRepo = {
+  findManyByStoreId(storeId: string, options?: { limit?: number; offset?: number }) {
+    const where = eq(coupons.storeId, storeId);
+    return db.query.coupons.findMany({
+      where,
+      orderBy: desc(coupons.createdAt),
+      limit: options?.limit,
+      offset: options?.offset,
+    });
+  },
+
+  countByStoreId(storeId: string) {
+    const where = eq(coupons.storeId, storeId);
+    return db
+      .select({ count: count() })
+      .from(coupons)
+      .where(where);
+  },
+
+  findById(couponId: string, storeId: string) {
+    return db.query.coupons.findFirst({
+      where: and(eq(coupons.id, couponId), eq(coupons.storeId, storeId)),
+    });
+  },
+
+  findByCode(code: string, storeId: string) {
+    return db.query.coupons.findFirst({
+      where: and(
+        eq(coupons.code, code),
+        eq(coupons.storeId, storeId),
+      ),
+    });
+  },
+
+  create(data: CouponInsert) {
+    return db.insert(coupons).values(data).returning();
+  },
+
+  update(couponId: string, storeId: string, data: Partial<CouponInsert>) {
+    return db
+      .update(coupons)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(coupons.id, couponId), eq(coupons.storeId, storeId)))
+      .returning();
+  },
+
+  deleteById(couponId: string, storeId: string) {
+    return db
+      .delete(coupons)
+      .where(and(eq(coupons.id, couponId), eq(coupons.storeId, storeId)));
+  },
+};

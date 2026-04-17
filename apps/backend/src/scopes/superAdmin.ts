@@ -7,9 +7,9 @@ import { ErrorCodes } from '../errors/codes.js';
 export default async function superAdminScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   // SuperAdmin JWT verification hook - runs on ALL admin routes EXCEPT login/logout
   fastify.addHook('onRequest', async (request, reply) => {
-    // Skip auth for login and logout routes only
+    // Skip auth for login, logout, and refresh routes only
     const url = request.url;
-    if (url.endsWith('/auth/login') || url.endsWith('/auth/logout')) {
+    if (url.endsWith('/auth/login') || url.endsWith('/auth/logout') || url.endsWith('/auth/refresh')) {
       return;
     }
     try {
@@ -39,9 +39,9 @@ export default async function superAdminScope(fastify: FastifyInstance, _opts: F
     }
   });
 
-  // Register superAdmin routes
-  fastify.register(import('../routes/superAdmin/auth.js'), { prefix: '/auth' });
-  fastify.register(import('../routes/superAdmin/merchants.js'), { prefix: '/merchants' });
-  fastify.register(import('../routes/superAdmin/plans.js'), { prefix: '/plans' });
-  fastify.register(import('../routes/superAdmin/stores.js'), { prefix: '/stores' });
+  // Register superAdmin routes (from modules/)
+  fastify.register(import('../modules/auth/auth.route.superAdmin.js'), { prefix: '/auth' });
+  fastify.register(import('../modules/superAdmin/superAdmin.route.js'), { prefix: '/merchants' });
+  fastify.register(import('../modules/superAdmin/superAdmin.route.plans.js'), { prefix: '/plans' });
+  fastify.register(import('../modules/store/store.route.superAdmin.js'), { prefix: '/stores' });
 }

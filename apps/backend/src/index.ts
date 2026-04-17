@@ -13,13 +13,8 @@ import { createCacheService } from './services/cache.service.js';
 import { createQueueService } from './services/queue.service.js';
 import { createEmailService } from './services/email.service.js';
 import { createUploadService } from './services/upload.service.js';
-import { storeService } from './services/store.service.js';
-import { authResetService } from './services/authReset.service.js';
-import { staffService } from './services/staff.service.js';
-import { shippingService } from './services/shipping.service.js';
-import { taxService } from './services/tax.service.js';
-import { addressService } from './services/address.service.js';
-import { pricingService } from './services/pricing.service.js';
+import { storeService } from './modules/store/store.service.js';
+import { pricingService } from './modules/pricing/pricing.service.js';
 import { createEmailProcessor } from './services/emailProcessor.service.js';
 import { sql } from 'drizzle-orm';
 
@@ -41,11 +36,6 @@ fastify.decorate('queueService', queueService);
 fastify.decorate('emailService', emailService);
 fastify.decorate('uploadService', uploadService);
 fastify.decorate('storeService', storeService);
-fastify.decorate('authResetService', authResetService);
-fastify.decorate('staffService', staffService);
-fastify.decorate('shippingService', shippingService);
-fastify.decorate('taxService', taxService);
-fastify.decorate('addressService', addressService);
 fastify.decorate('pricingService', pricingService);
 
 // Start email worker to process queued emails
