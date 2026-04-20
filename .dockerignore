@@ -1,0 +1,16 @@
+node_modules
+.svelte-kit
+.next
+dist
+build
+.turbo
+.env
+.env.*
+!.env.example
+*.log
+.git
+.gitignore
+.vscode
+.idea
+*.md
+!README.md
