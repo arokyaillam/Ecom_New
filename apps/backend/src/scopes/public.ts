@@ -35,4 +35,5 @@ export default async function publicScope(fastify: FastifyInstance, _opts: Fasti
   fastify.register(import('../modules/analytics/analytics.route.public.js'), { prefix: '/analytics' });
   fastify.register(import('../modules/shipping/shipping.route.public.js'), { prefix: '/shipping' });
   fastify.register(import('../modules/tax/tax.route.public.js'), { prefix: '/tax' });
+  fastify.register(import('../modules/payment/payment.route.public.js'), { prefix: '/payments' });
 }

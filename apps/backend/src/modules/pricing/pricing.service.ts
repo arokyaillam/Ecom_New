@@ -217,7 +217,7 @@ export const pricingService = {
     return {
       productId: product.id,
       productTitle: product.titleEn,
-      productImage: product.images ? product.images.split(',')[0]?.trim() || null : null,
+      productImage: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null,
       variantName,
       salePrice: product.salePrice,
       variantAdjustment,

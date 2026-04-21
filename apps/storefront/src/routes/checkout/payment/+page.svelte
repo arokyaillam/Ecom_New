@@ -23,6 +23,23 @@
   let email = $state('');
   let phone = $state('');
 
+  // Payment state
+  let selectedProvider = $state('');
+  let paymentLoading = $state(false);
+  let paymentError = $state('');
+
+  // Available providers from server data
+  const enabledProviders = $derived(
+    (data.paymentProviders ?? []).filter((p: any) => p.isEnabled)
+  );
+
+  // Auto-select first provider if only one available
+  $effect(() => {
+    if (enabledProviders.length === 1 && !selectedProvider) {
+      selectedProvider = enabledProviders[0].provider;
+    }
+  });
+
   // Retrieve shipping state
   let shippingState: any = {};
   try {
@@ -39,8 +56,6 @@
     if (!data.cart) return;
     calculatingTax = true;
     try {
-      const shippingInfo = JSON.parse(sessionStorage.getItem('checkout_shipping') ?? '{}');
-      // We need country from address — use a simplified approach
       const res = await fetch('/api/v1/public/tax/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +87,7 @@
   async function applyCoupon() {
     couponError = '';
     try {
-      const res = await fetch('/api/v1/merchant/coupons/validate', {
+      const res = await fetch('/api/v1/customer/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -84,7 +99,6 @@
       if (res.ok) {
         const result = await res.json();
         if (result.valid && result.coupon) {
-          // Calculate discount
           const coupon = result.coupon;
           const subtotal = parseFloat(data.cart?.subtotal ?? '0');
           if (coupon.type === 'Percent') {
@@ -103,13 +117,29 @@
     }
   }
 
+  // ─── Payment method labels ───
+  const providerLabels: Record<string, string> = {
+    razorpay: 'Razorpay (Cards / UPI / Wallets)',
+    stripe: 'Stripe (Cards / Apple Pay / Google Pay)',
+    cod: 'Cash on Delivery',
+  };
+
+  // ─── Proceed to confirm with payment method stored ───
   function proceedToConfirm() {
+    paymentError = '';
+    if (!selectedProvider) {
+      paymentError = 'Please select a payment method';
+      return;
+    }
+
+    // Store payment method in sessionStorage for the confirm step
     const paymentState = {
       email,
       phone,
       couponCode: couponCode || undefined,
       couponDiscount,
       tax,
+      paymentMethod: selectedProvider,
     };
     sessionStorage.setItem('checkout_payment', JSON.stringify(paymentState));
     goto('/checkout/confirm');
@@ -159,16 +189,50 @@
       {/if}
     </div>
 
-    <!-- Payment method placeholder -->
+    <!-- Payment method selection -->
     <div>
       <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Payment Method</h2>
-      <div class="p-6 border border-dashed border-[var(--color-border)] rounded-[var(--radius-md)] text-center text-[var(--color-text-secondary)]">
-        <p class="text-sm">Payment integration (Stripe) coming soon</p>
-        <p class="text-xs mt-1">Orders will be placed as "Cash on Delivery" for now</p>
-      </div>
+
+      {#if enabledProviders.length === 0}
+        <div class="p-6 border border-dashed border-[var(--color-border)] rounded-[var(--radius-md)] text-center text-[var(--color-text-secondary)]">
+          <p class="text-sm">No payment methods available for this store.</p>
+          <p class="text-xs mt-1">Please contact the store owner.</p>
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each enabledProviders as p (p.provider)}
+            <label
+              class="flex items-center gap-3 p-4 border rounded-[var(--radius-md)] cursor-pointer transition-colors
+                {selectedProvider === p.provider
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                  : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'}"
+            >
+              <input
+                type="radio"
+                name="paymentProvider"
+                value={p.provider}
+                bind:group={selectedProvider}
+                class="accent-[var(--color-primary)]"
+              />
+              <span class="text-sm font-medium text-[var(--color-text)]">
+                {providerLabels[p.provider] ?? p.provider}
+              </span>
+            </label>
+          {/each}
+        </div>
+      {/if}
+
+      {#if paymentError}
+        <p class="text-sm text-[var(--color-error)] mt-2">{paymentError}</p>
+      {/if}
     </div>
 
-    <Button onclick={proceedToConfirm} size="lg" class="w-full">
+    <Button
+      onclick={proceedToConfirm}
+      size="lg"
+      class="w-full"
+      disabled={!selectedProvider}
+    >
       Review Order
     </Button>
   </div>

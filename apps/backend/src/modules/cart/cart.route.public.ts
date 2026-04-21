@@ -95,7 +95,7 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const result = await cartService.updateItemQuantity(cartId, itemId, parsed.quantity);
+      const result = await cartService.updateItemQuantity(cartId, itemId, parsed.quantity, request.storeId);
       return result;
     } catch (err: any) {
       if (err.code === ErrorCodes.CART_ITEM_NOT_FOUND) {
@@ -122,7 +122,7 @@ export default async function publicCartRoutes(fastify: FastifyInstance) {
       return;
     }
 
-    const result = await cartService.removeItem(cartId, itemId);
+    const result = await cartService.removeItem(cartId, itemId, request.storeId);
     return result;
   });
 }

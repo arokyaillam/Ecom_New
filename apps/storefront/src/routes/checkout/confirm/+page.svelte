@@ -16,6 +16,7 @@
 
   let placing = $state(false);
   let error = $state('');
+  let razorpayModalOpen = $state(false);
 
   // Retrieve checkout state from sessionStorage
   let shippingInfo = $state<any>({});
@@ -29,12 +30,19 @@
 
   let tax = $derived(paymentInfo.tax ?? '0');
   let couponDiscount = $derived(paymentInfo.couponDiscount ?? '0');
+  let paymentMethod = $derived(paymentInfo.paymentMethod ?? 'cod');
   let effectiveTotal = $derived.by(() => {
     const subtotal = parseFloat(data.cart?.subtotal ?? '0');
     const taxNum = parseFloat(tax);
     const discount = parseFloat(couponDiscount);
     return (subtotal + taxNum - discount).toFixed(2);
   });
+
+  const providerLabels: Record<string, string> = {
+    razorpay: 'Razorpay',
+    stripe: 'Stripe',
+    cod: 'Cash on Delivery',
+  };
 
   async function placeOrder() {
     placing = true;
@@ -58,7 +66,7 @@
           modifierOptionIds: item.modifiers?.modifierOptionIds || undefined,
         })),
         cartId: cart.id,
-        paymentMethod: 'cod',
+        paymentMethod: paymentMethod,
         couponCode: paymentInfo.couponCode || undefined,
         shippingRateId: shippingInfo.shippingRateId || undefined,
         notes: '',
@@ -66,7 +74,6 @@
 
       // Add shipping address from saved or custom
       if (shippingInfo.addressType === 'saved' && shippingInfo.savedAddressId) {
-        // Will need to look up address — for now use placeholder
         body.shippingFirstName = 'Customer';
         body.shippingLastName = '';
         body.shippingAddressLine1 = 'Address from saved';
@@ -82,22 +89,130 @@
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        const result = await res.json();
-        const orderId = result.order?.id ?? '';
-        // Clear checkout state
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Order failed' }));
+        error = err.message || 'Failed to place order';
+        return;
+      }
+
+      const result = await res.json();
+      const orderId = result.order?.id ?? '';
+
+      // If COD, payment is done immediately — redirect
+      if (paymentMethod === 'cod') {
         sessionStorage.removeItem('checkout_shipping');
         sessionStorage.removeItem('checkout_payment');
         goto(`/order-confirmed/${orderId}`);
+        return;
+      }
+
+      // For Razorpay / Stripe, create a payment intent after order creation
+      const intentRes = await fetch('/api/v1/customer/payments/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          orderId,
+          provider: paymentMethod,
+        }),
+      });
+
+      if (!intentRes.ok) {
+        const err = await intentRes.json().catch(() => ({ message: 'Payment intent failed' }));
+        error = err.message || 'Failed to initiate payment';
+        return;
+      }
+
+      const intent = await intentRes.json();
+
+      if (paymentMethod === 'razorpay' && intent.razorpayOrderId) {
+        await openRazorpayCheckout(intent, orderId);
+      } else if (paymentMethod === 'stripe' && intent.clientSecret) {
+        await openStripeCheckout(intent, orderId);
       } else {
-        const err = await res.json().catch(() => ({ message: 'Order failed' }));
-        error = err.message || 'Failed to place order';
+        // Fallback: order placed, redirect
+        sessionStorage.removeItem('checkout_shipping');
+        sessionStorage.removeItem('checkout_payment');
+        goto(`/order-confirmed/${orderId}`);
       }
     } catch (e: any) {
       error = e.message || 'Something went wrong';
     } finally {
       placing = false;
     }
+  }
+
+  async function openRazorpayCheckout(intent: any, orderId: string) {
+    // Load Razorpay checkout.js if not already loaded
+    if (!document.getElementById('razorpay-checkout-js')) {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.id = 'razorpay-checkout-js';
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+        document.body.appendChild(script);
+      });
+    }
+
+    const options: any = {
+      key: intent.razorpayKeyId,
+      amount: intent.amount,
+      currency: intent.currency,
+      order_id: intent.razorpayOrderId,
+      name: 'Store',
+      description: `Order ${orderId.slice(0, 8)}`,
+      handler: function (_response: any) {
+        // Payment completed on Razorpay side — webhook will confirm
+        // Redirect to order confirmed page
+        sessionStorage.removeItem('checkout_shipping');
+        sessionStorage.removeItem('checkout_payment');
+        goto(`/order-confirmed/${orderId}`);
+      },
+      prefill: {
+        email: paymentInfo.email || '',
+        contact: paymentInfo.phone || '',
+      },
+      theme: {
+        color: '#0ea5e9',
+      },
+    };
+
+    // @ts-expect-error Razorpay global from checkout.js
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', () => {
+      error = 'Payment failed. Please try again.';
+    });
+    rzp.open();
+  }
+
+  async function openStripeCheckout(intent: any, orderId: string) {
+    // Load Stripe.js if not already loaded
+    if (!document.getElementById('stripe-js')) {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.id = 'stripe-js';
+        script.src = 'https://js.stripe.com/v3/';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Stripe SDK'));
+        document.body.appendChild(script);
+      });
+    }
+
+    // @ts-expect-error Stripe global from stripe.js
+    const stripe = Stripe(intent.publishableKey ?? '');
+
+    stripe.confirmCardPayment(intent.clientSecret, {
+      return_url: `${window.location.origin}/order-confirmed/${orderId}`,
+    }).then((result: any) => {
+      if (result.error) {
+        error = result.error.message || 'Payment failed';
+      } else {
+        sessionStorage.removeItem('checkout_shipping');
+        sessionStorage.removeItem('checkout_payment');
+        goto(`/order-confirmed/${orderId}`);
+      }
+    });
   }
 </script>
 
@@ -137,7 +252,7 @@
     <!-- Payment summary -->
     <div class="text-sm text-[var(--color-text-secondary)]">
       <h2 class="font-semibold text-[var(--color-text)] mb-1">Payment</h2>
-      <p>Cash on Delivery (Stripe integration coming soon)</p>
+      <p>{providerLabels[paymentMethod] ?? paymentMethod}</p>
       {#if paymentInfo.email}
         <p>Contact: {paymentInfo.email}</p>
       {/if}

@@ -68,9 +68,18 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
       request.storeId = decoded.storeId;
       request.userId = decoded.userId;
       request.userRole = decoded.role;
-      // OWNER has all permissions; others get defaults
+
+      // Load permissions: OWNER gets all; others get DB override or role defaults
       if (decoded.role === 'OWNER') {
         request.userPermissions = ['*'];
+      } else {
+        const override = await fastify.staffService.findRoleOverride(decoded.storeId, decoded.role);
+        if (override) {
+          request.userPermissions = override.permissions;
+        } else {
+          const defaults = fastify.staffService.getDefaultPermissions(decoded.role);
+          request.userPermissions = defaults;
+        }
       }
     } catch (err) {
       fastify.log.warn({ err }, 'Authentication failed');
@@ -98,4 +107,5 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
   fastify.register(import('../modules/staff/staff.route.merchant.js'), { prefix: '/staff' });
   fastify.register(import('../modules/shipping/shipping.route.merchant.js'), { prefix: '/shipping' });
   fastify.register(import('../modules/tax/tax.route.merchant.js'), { prefix: '/tax' });
+  fastify.register(import('../modules/payment/payment.route.merchant.js'), { prefix: '/payments' });
 }

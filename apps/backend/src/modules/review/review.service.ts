@@ -69,7 +69,7 @@ export const reviewService = {
     rating: number;
     title?: string;
     content: string;
-    images?: string;
+    images?: string[];
     isVerified?: boolean;
   }) {
     const [review] = await reviewRepo.create({
@@ -91,7 +91,7 @@ export const reviewService = {
     rating: number;
     title: string;
     content: string;
-    images: string;
+    images: string[];
     isApproved: boolean;
     response: string;
   }>) {

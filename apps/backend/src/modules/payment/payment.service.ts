@@ -1,0 +1,498 @@
+// Payment service — business logic, provider API calls, webhook verification
+import crypto from 'node:crypto';
+import { db } from '../../db/index.js';
+import { payments } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
+import { ErrorCodes } from '../../errors/codes.js';
+import { orderRepo } from '../order/order.repo.js';
+import * as repo from './payment.repo.js';
+
+/** Mask a secret string, showing only the last 4 characters. */
+function maskSecret(value: string | undefined): string {
+  if (!value || value.length <= 4) return '****';
+  return `****${value.slice(-4)}`;
+}
+
+/** Mask all values in a config record (API keys etc.). */
+function maskConfig(config: Record<string, string> | null | undefined): Record<string, string> | null {
+  if (!config) return null;
+  const masked: Record<string, string> = {};
+  for (const [key, value] of Object.entries(config)) {
+    masked[key] = maskSecret(value);
+  }
+  return masked;
+}
+
+/** Generate a UUID-based idempotency key. */
+function generateIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
+export const paymentService = {
+  // ─── Provider configuration ───
+
+  async getProviders(storeId: string) {
+    const providers = await repo.findProvidersByStoreId(storeId);
+    // Mask API keys in responses
+    return providers.map((p) => ({
+      ...p,
+      config: maskConfig(p.config as Record<string, string> | null),
+    }));
+  },
+
+  async configureProvider(
+    storeId: string,
+    provider: string,
+    isEnabled: boolean,
+    config?: Record<string, string>,
+  ) {
+    // COD needs no API keys
+    if (provider === 'cod') {
+      const result = await repo.upsertProvider(storeId, provider, { isEnabled, config: undefined });
+      return { ...result, config: null };
+    }
+
+    // Stripe/Razorpay: validate required config keys are present when enabling
+    if (isEnabled) {
+      if (provider === 'stripe' && (!config?.secret_key || !config?.webhook_secret)) {
+        throw Object.assign(new Error('Stripe requires secret_key and webhook_secret in config'), {
+          code: ErrorCodes.VALIDATION_ERROR,
+        });
+      }
+      if (provider === 'razorpay' && (!config?.key_id || !config?.key_secret || !config?.webhook_secret)) {
+        throw Object.assign(new Error('Razorpay requires key_id, key_secret, and webhook_secret in config'), {
+          code: ErrorCodes.VALIDATION_ERROR,
+        });
+      }
+    }
+
+    const result = await repo.upsertProvider(storeId, provider, { isEnabled, config });
+    return { ...result, config: maskConfig(result.config as Record<string, string> | null) };
+  },
+
+  // ─── Payment intent creation ───
+
+  async createPaymentIntent(
+    storeId: string,
+    orderId: string,
+    provider: string,
+    idempotencyKey?: string,
+  ) {
+    // Verify the order exists and is in pending status
+    const order = await orderRepo.findByIdSimple(orderId, storeId);
+    if (!order) {
+      throw Object.assign(new Error('Order not found'), {
+        code: ErrorCodes.ORDER_NOT_FOUND,
+      });
+    }
+    if (order.status !== 'pending') {
+      throw Object.assign(new Error('Order is not in pending status'), {
+        code: ErrorCodes.PAYMENT_ALREADY_PROCESSED,
+      });
+    }
+    if (order.paymentStatus === 'paid') {
+      throw Object.assign(new Error('Payment already completed for this order'), {
+        code: ErrorCodes.PAYMENT_ALREADY_PROCESSED,
+      });
+    }
+
+    // Verify the provider is enabled for this store
+    const providerConfig = await repo.findProvider(storeId, provider);
+    if (!providerConfig || !providerConfig.isEnabled) {
+      throw Object.assign(new Error(`Payment provider ${provider} is not enabled`), {
+        code: ErrorCodes.PAYMENT_PROVIDER_NOT_ENABLED,
+      });
+    }
+
+    const config = providerConfig.config as Record<string, string> | null;
+    const iKey = idempotencyKey || generateIdempotencyKey();
+
+    // For COD: create payment record as completed immediately
+    if (provider === 'cod') {
+      const result = await db.transaction(async (tx) => {
+        const payment = await repo.insertPayment({
+          storeId,
+          orderId,
+          provider: 'cod',
+          status: 'completed',
+          amount: order.total,
+          currency: order.currency,
+          idempotencyKey: iKey,
+        }, tx);
+
+        // Update order payment status
+        await orderRepo.updateOrder(orderId, storeId, {
+          paymentStatus: 'paid',
+          paymentMethod: 'cod',
+          updatedAt: new Date(),
+        }, tx);
+
+        return payment;
+      });
+
+      return {
+        paymentId: result.id,
+        provider: 'cod',
+        status: 'completed',
+        amount: result.amount,
+        currency: result.currency,
+      };
+    }
+
+    // For Razorpay: call Razorpay Orders API
+    if (provider === 'razorpay') {
+      const razorpayOrder = await createRazorpayOrder(
+        config!,
+        order.total,
+        order.currency === 'INR' ? 'INR' : 'USD',
+        iKey,
+        orderId,
+      );
+
+      const result = await db.transaction(async (tx) => {
+        const payment = await repo.insertPayment({
+          storeId,
+          orderId,
+          provider: 'razorpay',
+          providerPaymentId: razorpayOrder.id,
+          status: 'processing',
+          amount: order.total,
+          currency: order.currency,
+          idempotencyKey: iKey,
+        }, tx);
+
+        // Update order payment method
+        await orderRepo.updateOrder(orderId, storeId, {
+          paymentMethod: 'razorpay',
+          updatedAt: new Date(),
+        }, tx);
+
+        return payment;
+      });
+
+      return {
+        paymentId: result.id,
+        provider: 'razorpay',
+        status: 'processing',
+        amount: result.amount,
+        currency: result.currency,
+        razorpayOrderId: razorpayOrder.id,
+        razorpayKeyId: config!.key_id,
+      };
+    }
+
+    // For Stripe: call Stripe PaymentIntents API
+    if (provider === 'stripe') {
+      const stripeIntent = await createStripePaymentIntent(
+        config!,
+        order.total,
+        order.currency,
+        iKey,
+        orderId,
+      );
+
+      const result = await db.transaction(async (tx) => {
+        const payment = await repo.insertPayment({
+          storeId,
+          orderId,
+          provider: 'stripe',
+          providerPaymentId: stripeIntent.id,
+          status: 'processing',
+          amount: order.total,
+          currency: order.currency,
+          idempotencyKey: iKey,
+        }, tx);
+
+        // Update order payment method
+        await orderRepo.updateOrder(orderId, storeId, {
+          paymentMethod: 'stripe',
+          updatedAt: new Date(),
+        }, tx);
+
+        return payment;
+      });
+
+      return {
+        paymentId: result.id,
+        provider: 'stripe',
+        status: 'processing',
+        amount: result.amount,
+        currency: result.currency,
+        clientSecret: stripeIntent.client_secret,
+      };
+    }
+
+    throw Object.assign(new Error(`Unsupported payment provider: ${provider}`), {
+      code: ErrorCodes.PAYMENT_FAILED,
+    });
+  },
+
+  // ─── Webhook handling ───
+
+  async handleWebhook(
+    provider: string,
+    payload: Record<string, unknown>,
+    signature: string,
+    rawBody: string,
+    storeId: string,
+  ) {
+    if (provider === 'razorpay') {
+      return handleRazorpayWebhook(payload, signature, rawBody, storeId);
+    }
+    if (provider === 'stripe') {
+      return handleStripeWebhook(payload, signature, rawBody, storeId);
+    }
+    throw Object.assign(new Error(`Unsupported webhook provider: ${provider}`), {
+      code: ErrorCodes.PAYMENT_FAILED,
+    });
+  },
+
+  // ─── Payment status ───
+
+  async getPaymentStatus(orderId: string, storeId: string) {
+    const order = await orderRepo.findByIdSimple(orderId, storeId);
+    if (!order) {
+      throw Object.assign(new Error('Order not found'), {
+        code: ErrorCodes.ORDER_NOT_FOUND,
+      });
+    }
+
+    const payment = await repo.findPaymentByOrderId(orderId, storeId);
+    return {
+      orderId: order.id,
+      orderStatus: order.status,
+      paymentStatus: order.paymentStatus,
+      payment: payment
+        ? {
+            id: payment.id,
+            provider: payment.provider,
+            status: payment.status,
+            amount: payment.amount,
+            currency: payment.currency,
+            providerPaymentId: payment.providerPaymentId,
+            createdAt: payment.createdAt,
+          }
+        : null,
+    };
+  },
+
+  // ─── Provider lookup for webhooks (internal) ───
+
+  async findProviderByStoreId(storeId: string, provider: string) {
+    return repo.findProvider(storeId, provider);
+  },
+};
+
+// ─── Razorpay API calls ───
+
+async function createRazorpayOrder(
+  config: Record<string, string>,
+  amount: string,
+  currency: string,
+  idempotencyKey: string,
+  receipt: string,
+) {
+  const amountPaise = Math.round(parseFloat(amount) * 100);
+
+  const response = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Basic ${Buffer.from(`${config.key_id}:${config.key_secret}`).toString('base64')}`,
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      amount: amountPaise,
+      currency: currency === 'INR' ? 'INR' : 'USD',
+      receipt: receipt.slice(0, 40), // Razorpay limit
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw Object.assign(new Error(`Razorpay API error: ${response.status} - ${errBody}`), {
+      code: ErrorCodes.PAYMENT_FAILED,
+    });
+  }
+
+  return response.json() as Promise<{ id: string; amount: number; currency: string }>;
+}
+
+// ─── Stripe API calls ───
+
+async function createStripePaymentIntent(
+  config: Record<string, string>,
+  amount: string,
+  currency: string,
+  idempotencyKey: string,
+  metadataOrderId: string,
+) {
+  const amountCents = Math.round(parseFloat(amount) * 100);
+  // Stripe expects lowercase 3-letter currency codes
+  const cur = currency.toLowerCase();
+
+  const response = await fetch('https://api.stripe.com/v1/payment_intents', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Bearer ${config.secret_key}`,
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: new URLSearchParams({
+      amount: String(amountCents),
+      currency: cur,
+      'metadata[orderId]': metadataOrderId,
+      'automatic_payment_methods[enabled]': 'true',
+    }).toString(),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw Object.assign(new Error(`Stripe API error: ${response.status} - ${errBody}`), {
+      code: ErrorCodes.PAYMENT_FAILED,
+    });
+  }
+
+  return response.json() as Promise<{ id: string; client_secret: string; amount: number; currency: string }>;
+}
+
+// ─── Razorpay webhook ───
+
+async function handleRazorpayWebhook(
+  payload: Record<string, unknown>,
+  _signature: string,
+  _rawBody: string,
+  _storeId: string,
+) {
+  // Razorpay webhook payload has: entity, event, contains, etc.
+  const event = payload.event as string;
+  const payloadData = payload.payload as Record<string, unknown> | undefined;
+  const paymentEntity = payloadData?.payment
+    ? (payloadData.payment as Record<string, unknown>).entity as Record<string, unknown> | undefined
+    : undefined;
+
+  if (event === 'payment.captured' && paymentEntity) {
+    const razorpayOrderId = paymentEntity.order_id as string;
+    const razorpayPaymentId = paymentEntity.id as string;
+
+    // Find the payment by providerPaymentId (razorpay order id)
+    const payment = await db.query.payments.findFirst({
+      where: eq(payments.providerPaymentId, razorpayOrderId),
+    });
+
+    if (!payment) return { received: true };
+
+    if (payment.status === 'completed') {
+      return { received: true }; // Already processed — idempotent
+    }
+
+    await db.transaction(async (tx) => {
+      await repo.updatePaymentStatus(
+        payment.id,
+        payment.storeId,
+        {
+          status: 'completed',
+          providerPaymentId: razorpayPaymentId,
+        },
+        tx,
+      );
+      await orderRepo.updateOrder(payment.orderId, payment.storeId, {
+        paymentStatus: 'paid',
+        updatedAt: new Date(),
+      }, tx);
+    });
+  }
+
+  return { received: true };
+}
+
+// ─── Stripe webhook ───
+
+async function handleStripeWebhook(
+  payload: Record<string, unknown>,
+  _signature: string,
+  _rawBody: string,
+  _storeId: string,
+) {
+  const type = payload.type as string;
+  const dataObject = (payload.data as Record<string, unknown>)?.object as Record<string, unknown> | undefined;
+
+  if (type === 'payment_intent.succeeded' && dataObject) {
+    const stripePaymentIntentId = dataObject.id as string;
+
+    const payment = await db.query.payments.findFirst({
+      where: eq(payments.providerPaymentId, stripePaymentIntentId),
+    });
+
+    if (!payment) return { received: true };
+
+    if (payment.status === 'completed') {
+      return { received: true }; // Already processed — idempotent
+    }
+
+    await db.transaction(async (tx) => {
+      await repo.updatePaymentStatus(
+        payment.id,
+        payment.storeId,
+        { status: 'completed' },
+        tx,
+      );
+      await orderRepo.updateOrder(payment.orderId, payment.storeId, {
+        paymentStatus: 'paid',
+        updatedAt: new Date(),
+      }, tx);
+    });
+  }
+
+  return { received: true };
+}
+
+// ─── Webhook signature verification (exported for route handlers) ───
+
+export function verifyRazorpaySignature(
+  rawBody: string,
+  signature: string,
+  webhookSecret: string,
+): boolean {
+  const expected = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(rawBody)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(signature),
+  );
+}
+
+export function verifyStripeSignature(
+  payload: string,
+  signature: string,
+  webhookSecret: string,
+): boolean {
+  // Stripe signature format: t=timestamp,v1=signature
+  const parts = signature.split(',');
+  let timestamp = '';
+  let v1Sig = '';
+  for (const part of parts) {
+    const [key, value] = part.split('=');
+    if (key === 't') timestamp = value;
+    if (key === 'v1') v1Sig = value;
+  }
+
+  if (!timestamp || !v1Sig) return false;
+
+  const signedPayload = `${timestamp}.${payload}`;
+  const expected = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(signedPayload)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected),
+      Buffer.from(v1Sig),
+    );
+  } catch {
+    return false;
+  }
+}

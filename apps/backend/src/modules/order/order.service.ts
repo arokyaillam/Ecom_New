@@ -154,21 +154,15 @@ export const orderService = {
         await orderRepo.resetCartTotals(data.cartId, tx);
       }
 
-      // Increment coupon usage count if a coupon was applied (with re-validation inside transaction)
+      // Atomically increment coupon usage with limit check inside transaction
       if (data.couponId) {
-        const coupon = await orderRepo.findCouponById(data.couponId, tx);
+        const result = await orderRepo.incrementCouponUsage(data.couponId, tx);
 
-        if (!coupon) {
-          throw Object.assign(new Error('Invalid coupon'), { code: ErrorCodes.INVALID_COUPON });
-        }
-
-        if (coupon.usageLimit !== null && (coupon.usageCount ?? 0) >= coupon.usageLimit) {
+        if (result.length === 0) {
           throw Object.assign(new Error('Coupon usage limit reached'), {
             code: ErrorCodes.COUPON_USAGE_EXCEEDED,
           });
         }
-
-        await orderRepo.incrementCouponUsage(data.couponId, tx);
       }
 
       return order;

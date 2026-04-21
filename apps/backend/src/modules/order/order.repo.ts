@@ -163,15 +163,20 @@ export const orderRepo = {
 
   async incrementCouponUsage(couponId: string, tx?: DbOrTx) {
     const executor = tx ?? db;
-    const [updated] = await executor
+    const rows = await executor
       .update(coupons)
       .set({
         usageCount: sql`${coupons.usageCount} + 1`,
         updatedAt: new Date(),
       })
-      .where(eq(coupons.id, couponId))
+      .where(
+        and(
+          eq(coupons.id, couponId),
+          sql`(${coupons.usageLimit} IS NULL OR ${coupons.usageCount} < ${coupons.usageLimit})`,
+        ),
+      )
       .returning();
-    return updated;
+    return rows;
   },
 
   async updateOrder(orderId: string, storeId: string, data: Partial<typeof orders.$inferInsert>, tx?: DbOrTx) {

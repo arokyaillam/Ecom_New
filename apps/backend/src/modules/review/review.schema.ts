@@ -12,14 +12,14 @@ export const createReviewSchema = z.strictObject({
   rating: z.number().int().min(1).max(5),
   title: z.string().max(255).optional(),
   content: z.string().min(1).max(2000),
-  images: z.string().optional(),
+  images: z.array(z.string().url()).optional(),
 });
 
 export const updateReviewSchema = z.strictObject({
   rating: z.number().int().min(1).max(5).optional(),
   title: z.string().max(255).optional(),
   content: z.string().min(1).max(2000).optional(),
-  images: z.string().optional(),
+  images: z.array(z.string().url()).optional(),
 });
 
 // --- Merchant route schemas ---

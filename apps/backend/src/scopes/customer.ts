@@ -53,7 +53,9 @@ export default async function customerScope(fastify: FastifyInstance, _opts: Fas
   fastify.register(import('../modules/customer/customer.route.customer.js'), { prefix: '/profile' });
   fastify.register(import('../modules/order/order.route.customer.js'), { prefix: '/orders' });
   fastify.register(import('../modules/checkout/checkout.route.customer.js'), { prefix: '/checkout' });
+  fastify.register(import('../modules/coupon/coupon.route.customer.js'), { prefix: '/coupons' });
   fastify.register(import('../modules/wishlist/wishlist.route.customer.js'), { prefix: '/wishlist' });
   fastify.register(import('../modules/review/review.route.customer.js'), { prefix: '/reviews' });
   fastify.register(import('../modules/address/address.route.customer.js'), { prefix: '/addresses' });
+  fastify.register(import('../modules/payment/payment.route.customer.js'), { prefix: '/payments' });
 }

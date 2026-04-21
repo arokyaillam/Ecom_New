@@ -32,14 +32,15 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
 
     const user = await authService.verifyMerchantCredentials(parsed.email, parsed.password);
 
-    const jti = crypto.randomUUID();
+    const accessJti = crypto.randomUUID();
+    const refreshJti = crypto.randomUUID();
 
     // Sign access token (15 min default) and refresh token (7d explicit)
     const accessToken = await reply.jwtSign({
       userId: user.id,
       storeId: user.storeId,
       role: user.role,
-      jti,
+      jti: accessJti,
       type: 'access',
     });
 
@@ -47,12 +48,12 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
       userId: user.id,
       storeId: user.storeId,
       role: user.role,
-      jti,
+      jti: refreshJti,
       type: 'refresh',
     }, { expiresIn: '7d' });
 
     // Store refresh token in Redis
-    await authService.storeRefreshToken(fastify.redis, 'merchant', user.id, jti);
+    await authService.storeRefreshToken(fastify.redis, 'merchant', user.id, refreshJti);
 
     // Set httpOnly cookies — NEVER return tokens in body
     reply.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: ACCESS_MAX_AGE });
@@ -83,13 +84,14 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
 
     const { store, user } = await authService.registerMerchant(parsed);
 
-    const jti = crypto.randomUUID();
+    const accessJti = crypto.randomUUID();
+    const refreshJti = crypto.randomUUID();
 
     const accessToken = await reply.jwtSign({
       userId: user.id,
       storeId: store.id,
       role: user.role,
-      jti,
+      jti: accessJti,
       type: 'access',
     });
 
@@ -97,11 +99,11 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
       userId: user.id,
       storeId: store.id,
       role: user.role,
-      jti,
+      jti: refreshJti,
       type: 'refresh',
     }, { expiresIn: '7d' });
 
-    await authService.storeRefreshToken(fastify.redis, 'merchant', user.id, jti);
+    await authService.storeRefreshToken(fastify.redis, 'merchant', user.id, refreshJti);
 
     reply.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: ACCESS_MAX_AGE });
     reply.setCookie('refresh_token', refreshToken, { ...cookieOptions, maxAge: REFRESH_MAX_AGE });
@@ -267,8 +269,8 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
       await fastify.emailService.sendEmail({
         to: email,
         subject: 'Reset your password',
-        html: `<p>Use this token to reset your password:</p><p><code>${result.token}</code></p>`,
-        text: `Reset your password. Token: ${result.token}`,
+        html: `<p>Click the link below to reset your password:</p><p><a href="${process.env.STOREFRONT_URL || 'http://localhost:5173'}/reset-password?token=${result.token}">Reset your password</a></p><p>If you did not request this, you can safely ignore this email.</p>`,
+        text: `Reset your password: ${process.env.STOREFRONT_URL || 'http://localhost:5173'}/reset-password?token=${result.token}`,
       });
     }
     return { success: true, message: 'If an account with that email exists, a reset link has been sent' };

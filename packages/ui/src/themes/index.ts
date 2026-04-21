@@ -72,17 +72,30 @@ export function resolveTheme(
   };
 }
 
+const SAFE_FONT = /^[a-zA-Z0-9,\s"'-]{1,200}$/;
+const SAFE_HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const SAFE_RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[01]?\.\d+\s*\)$/;
+
+function sanitizeCssValue(value: string, type: 'font' | 'color'): string {
+  if (type === 'font') {
+    if (!SAFE_FONT.test(value)) return 'Inter, sans-serif';
+    return value;
+  }
+  if (!SAFE_HEX.test(value) && !SAFE_RGBA.test(value)) return '#000000';
+  return value;
+}
+
 export function themeToCssVars(theme: ThemeTokens): Record<string, string> {
   return {
-    '--color-primary': theme.colors.primary,
-    '--color-secondary': theme.colors.secondary,
-    '--color-accent': theme.colors.accent,
-    '--color-bg': theme.colors.bg,
-    '--color-surface': theme.colors.surface,
-    '--color-text': theme.colors.text,
-    '--color-text-secondary': theme.colors.textSecondary,
-    '--color-border': theme.colors.border,
-    '--font-family': `'${theme.font}', Georgia, serif`,
+    '--color-primary': sanitizeCssValue(theme.colors.primary, 'color'),
+    '--color-secondary': sanitizeCssValue(theme.colors.secondary, 'color'),
+    '--color-accent': sanitizeCssValue(theme.colors.accent, 'color'),
+    '--color-bg': sanitizeCssValue(theme.colors.bg, 'color'),
+    '--color-surface': sanitizeCssValue(theme.colors.surface, 'color'),
+    '--color-text': sanitizeCssValue(theme.colors.text, 'color'),
+    '--color-text-secondary': sanitizeCssValue(theme.colors.textSecondary, 'color'),
+    '--color-border': sanitizeCssValue(theme.colors.border, 'color'),
+    '--font-family': `'${sanitizeCssValue(theme.font, 'font')}', Georgia, serif`,
     '--radius-base': theme.radius,
   };
 }

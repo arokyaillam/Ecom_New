@@ -12,7 +12,7 @@ export const cartService = {
    */
   async getOrCreateCart(cartId: string | undefined, storeId: string) {
     if (cartId) {
-      const existingCart = await cartRepo.findCartById(cartId);
+      const existingCart = await cartRepo.findCartById(cartId, storeId);
       if (existingCart) {
         return { cart: existingCart, isNew: false };
       }
@@ -112,7 +112,7 @@ export const cartService = {
 
       await cartService.recalculateTotals(cartId);
 
-      const cart = await cartRepo.findCartById(cartId);
+      const cart = await cartRepo.findCartById(cartId, storeId);
       return { cart, item: updated };
     }
 
@@ -128,7 +128,7 @@ export const cartService = {
 
     await cartService.recalculateTotals(cartId);
 
-    const cart = await cartRepo.findCartById(cartId);
+    const cart = await cartRepo.findCartById(cartId, storeId);
     return { cart, item };
   },
 
@@ -136,7 +136,7 @@ export const cartService = {
    * Update the quantity of a cart item.
    * Recomputes total from the stored (server-verified) price.
    */
-  async updateItemQuantity(cartId: string, itemId: string, quantity: number) {
+  async updateItemQuantity(cartId: string, itemId: string, quantity: number, storeId: string) {
     const item = await cartRepo.findCartItemById(itemId, cartId);
 
     if (!item) {
@@ -154,18 +154,18 @@ export const cartService = {
 
     await cartService.recalculateTotals(cartId);
 
-    const cart = await cartRepo.findCartById(cartId);
+    const cart = await cartRepo.findCartById(cartId, storeId);
     return { cart, item: updated };
   },
 
   /**
    * Remove an item from the cart.
    */
-  async removeItem(cartId: string, itemId: string) {
+  async removeItem(cartId: string, itemId: string, storeId: string) {
     await cartRepo.deleteCartItem(itemId, cartId);
     await cartService.recalculateTotals(cartId);
 
-    const cart = await cartRepo.findCartById(cartId);
+    const cart = await cartRepo.findCartById(cartId, storeId);
     return { cart };
   },
 };

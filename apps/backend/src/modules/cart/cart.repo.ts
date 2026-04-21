@@ -7,9 +7,9 @@ import type { DbOrTx } from '../_shared/db-types.js';
 export const cartRepo = {
   // ─── Read operations ───
 
-  async findCartById(cartId: string) {
+  async findCartById(cartId: string, storeId: string) {
     return db.query.carts.findFirst({
-      where: eq(carts.id, cartId),
+      where: and(eq(carts.id, cartId), eq(carts.storeId, storeId)),
       with: { items: true },
     });
   },

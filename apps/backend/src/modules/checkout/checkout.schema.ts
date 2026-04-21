@@ -33,7 +33,7 @@ export const checkoutSchema = z.strictObject({
   shippingState: z.string().max(255).optional(),
   shippingCountry: z.string().max(255).optional(),
   shippingPostalCode: z.string().max(20).optional(),
-  paymentMethod: z.string().max(50).optional(),
+  paymentMethod: z.enum(['razorpay', 'stripe', 'cod']).optional(),
   couponCode: z.string().max(50).optional(),
   shippingRateId: z.string().uuid().optional(),
   notes: z.string().max(1000).optional(),

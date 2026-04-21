@@ -165,4 +165,14 @@ export const staffService = {
     if (!perms) return false;
     return perms.includes('*') || perms.includes(permission);
   },
+
+  // Find role permission override from DB
+  async findRoleOverride(storeId: string, role: string) {
+    return staffRepo.findRoleOverride(storeId, role);
+  },
+
+  // Get default permissions for a role
+  getDefaultPermissions(role: string): string[] {
+    return DEFAULT_PERMISSIONS[role] ?? [];
+  },
 };

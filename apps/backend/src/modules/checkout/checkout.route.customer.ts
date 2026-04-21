@@ -6,6 +6,9 @@ import { orderService } from '../order/order.service.js';
 export default async function customerCheckoutRoutes(fastify: FastifyInstance) {
   // POST /api/v1/customer/checkout - Create an order
   fastify.post('/', {
+    config: {
+      rateLimit: { max: 5, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['Customer Checkout'],
       summary: 'Place order',

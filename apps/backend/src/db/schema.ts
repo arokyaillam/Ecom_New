@@ -110,8 +110,8 @@ export const products = pgTable("products", {
   titleAr: text("title_ar"),
   sortOrder: integer("sort_order").default(0),
   preparationTime: integer("preparation_time"),
-  tags: text("tags"),
-  images: text("images"),
+  tags: json("tags").$type<string[]>().default([]),
+  images: json("images").$type<string[]>().default([]),
   youtubeVideoLinkId: text("youtube_video_link_id"),
   descriptionEn: text("description_en"),
   descriptionAr: text("description_ar"),
@@ -335,7 +335,7 @@ export const reviews = pgTable("reviews", {
   rating: integer("rating").notNull(),
   title: text("title"),
   content: text("content").notNull(),
-  images: text("images"),
+  images: json("images").$type<string[]>().default([]),
   isVerified: boolean("is_verified").default(false),
   isApproved: boolean("is_approved").default(true),
   helpfulCount: integer("helpful_count").default(0),
@@ -441,6 +441,8 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   orders: many(orders),
   coupons: many(coupons),
   analytics: many(storeAnalytics),
+  paymentProviders: many(paymentProviders),
+  payments: many(payments),
 }));
 
 export const categoriesRelations = relations(categories, ({ many, one }) => ({
@@ -583,6 +585,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.couponId],
     references: [coupons.id],
   }),
+  payments: many(payments),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -841,5 +844,52 @@ export const taxRatesRelations = relations(taxRates, ({ one }) => ({
   store: one(stores, {
     fields: [taxRates.storeId],
     references: [stores.id],
+  }),
+}));
+
+// ─── Phase 3: Payment Providers + Payments ───
+
+export const paymentProviders = pgTable("payment_providers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  provider: text("provider").notNull(), // 'razorpay' | 'stripe' | 'cod'
+  isEnabled: boolean("is_enabled").default(false),
+  config: json("config").$type<Record<string, string>>(), // provider-specific config (API keys, etc.)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  provider: text("provider").notNull(), // 'razorpay' | 'stripe' | 'cod'
+  providerPaymentId: text("provider_payment_id"), // Razorpay payment_id, Stripe PaymentIntent ID
+  status: text("status").default("pending").notNull(), // pending | processing | completed | failed | refunded
+  amount: decimal("amount").notNull(),
+  currency: text("currency").default("USD"),
+  idempotencyKey: text("idempotency_key"), // for retry safety
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Phase 3 Relations ───
+
+export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
+  store: one(stores, {
+    fields: [paymentProviders.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  store: one(stores, {
+    fields: [payments.storeId],
+    references: [stores.id],
+  }),
+  order: one(orders, {
+    fields: [payments.orderId],
+    references: [orders.id],
   }),
 }));

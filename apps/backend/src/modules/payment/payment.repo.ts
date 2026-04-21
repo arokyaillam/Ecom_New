@@ -1,0 +1,102 @@
+// Payment repository — DB-only operations, no business logic
+import { db } from '../../db/index.js';
+import { paymentProviders, payments } from '../../db/schema.js';
+import { eq, and } from 'drizzle-orm';
+import type { DbOrTx } from '../_shared/db-types.js';
+
+// ─── Provider queries ───
+
+export async function findProvidersByStoreId(storeId: string) {
+  return db.query.paymentProviders.findMany({
+    where: eq(paymentProviders.storeId, storeId),
+  });
+}
+
+export async function findProvider(storeId: string, provider: string) {
+  return db.query.paymentProviders.findFirst({
+    where: and(
+      eq(paymentProviders.storeId, storeId),
+      eq(paymentProviders.provider, provider),
+    ),
+  });
+}
+
+export async function upsertProvider(
+  storeId: string,
+  provider: string,
+  data: { isEnabled: boolean; config?: Record<string, string> },
+) {
+  const existing = await findProvider(storeId, provider);
+
+  if (existing) {
+    const [updated] = await db
+      .update(paymentProviders)
+      .set({
+        isEnabled: data.isEnabled,
+        config: data.config,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(paymentProviders.storeId, storeId),
+        eq(paymentProviders.provider, provider),
+      ))
+      .returning();
+    return updated;
+  }
+
+  const [inserted] = await db
+    .insert(paymentProviders)
+    .values({
+      storeId,
+      provider,
+      isEnabled: data.isEnabled,
+      config: data.config,
+    })
+    .returning();
+  return inserted;
+}
+
+// ─── Payment queries ───
+
+export async function insertPayment(
+  data: typeof payments.$inferInsert,
+  tx?: DbOrTx,
+) {
+  const executor = tx ?? db;
+  const [payment] = await executor.insert(payments).values(data).returning();
+  return payment;
+}
+
+export async function findPaymentById(id: string, storeId: string) {
+  return db.query.payments.findFirst({
+    where: and(eq(payments.id, id), eq(payments.storeId, storeId)),
+  });
+}
+
+export async function findPaymentByOrderId(orderId: string, storeId: string) {
+  return db.query.payments.findFirst({
+    where: and(eq(payments.orderId, orderId), eq(payments.storeId, storeId)),
+  });
+}
+
+export async function updatePaymentStatus(
+  id: string,
+  storeId: string,
+  data: {
+    status?: string;
+    providerPaymentId?: string;
+    metadata?: Record<string, unknown>;
+  },
+  tx?: DbOrTx,
+) {
+  const executor = tx ?? db;
+  const [updated] = await executor
+    .update(payments)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(payments.id, id), eq(payments.storeId, storeId)))
+    .returning();
+  return updated;
+}

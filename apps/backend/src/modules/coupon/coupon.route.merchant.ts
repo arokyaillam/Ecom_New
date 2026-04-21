@@ -93,6 +93,9 @@ export default async function merchantCouponsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/coupons/validate - validate a coupon code
   fastify.post('/validate', {
+    config: {
+      rateLimit: { max: 10, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['Merchant Coupons'],
       summary: 'Validate coupon code',

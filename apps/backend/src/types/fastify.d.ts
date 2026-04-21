@@ -9,6 +9,8 @@ import type { EmailService } from '../services/email.service.js';
 import type { UploadService } from '../services/upload.service.js';
 import type { storeService } from '../modules/store/store.service.js';
 import type { pricingService } from '../modules/pricing/pricing.service.js';
+import type { staffService } from '../modules/staff/staff.service.js';
+import type { paymentService } from '../modules/payment/payment.service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -33,6 +35,8 @@ declare module 'fastify' {
     uploadService: UploadService;
     storeService: typeof storeService;
     pricingService: typeof pricingService;
+    staffService: typeof staffService;
+    paymentService: typeof paymentService;
   }
 }
 

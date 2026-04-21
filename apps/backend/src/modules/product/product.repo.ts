@@ -208,7 +208,7 @@ export const productRepo = {
           ilike(products.titleAr, pattern),
           ilike(products.descriptionEn, pattern),
           ilike(products.descriptionAr, pattern),
-          ilike(products.tags, pattern),
+          sql`${products.tags}::text ilike ${pattern}`,
         )!,
       );
     }

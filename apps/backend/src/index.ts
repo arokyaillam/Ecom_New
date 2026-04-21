@@ -15,6 +15,8 @@ import { createEmailService } from './services/email.service.js';
 import { createUploadService } from './services/upload.service.js';
 import { storeService } from './modules/store/store.service.js';
 import { pricingService } from './modules/pricing/pricing.service.js';
+import { staffService } from './modules/staff/staff.service.js';
+import { paymentService } from './modules/payment/payment.service.js';
 import { createEmailProcessor } from './services/emailProcessor.service.js';
 import { sql } from 'drizzle-orm';
 
@@ -37,6 +39,8 @@ fastify.decorate('emailService', emailService);
 fastify.decorate('uploadService', uploadService);
 fastify.decorate('storeService', storeService);
 fastify.decorate('pricingService', pricingService);
+fastify.decorate('staffService', staffService);
+fastify.decorate('paymentService', paymentService);
 
 // Start email worker to process queued emails
 const emailProcessor = createEmailProcessor(emailService);
@@ -60,8 +64,14 @@ fastify.get('/health/ready', async (_request, reply) => {
   }
 });
 
-// Detailed health check - database, redis, queue, memory
-fastify.get('/health/detailed', async () => {
+// Detailed health check - database, redis, queue, memory (protected by API key or internal network)
+fastify.get('/health/detailed', async (request, reply) => {
+  // Require a static health-check API key via query param or header
+  const healthKey = request.headers['x-health-key'] || (request.query as Record<string, string>)['health_key'];
+  if (env.HEALTH_CHECK_KEY && healthKey !== env.HEALTH_CHECK_KEY) {
+    reply.status(403).send({ error: 'Forbidden', message: 'Invalid health check key' });
+    return;
+  }
   const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
 
   // Database check
@@ -192,6 +202,10 @@ fastify.setErrorHandler((error: unknown, _request, reply) => {
     PRODUCT_UNAVAILABLE: 422,
     COUPON_NOT_APPLICABLE: 422,
     SHIPPING_OPTION_INVALID: 422,
+    // Payment
+    PAYMENT_FAILED: 400,
+    PAYMENT_PROVIDER_NOT_ENABLED: 422,
+    PAYMENT_ALREADY_PROCESSED: 409,
   };
 
   // Priority: custom code mapping > Fastify's statusCode > default 500

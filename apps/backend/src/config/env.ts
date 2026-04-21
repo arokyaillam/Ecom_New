@@ -42,6 +42,12 @@ const envSchema = z.object({
   // CORS - comma-separated list of allowed origins for production
   CORS_ORIGINS: z.string().optional(),
 
+  // Storefront URL (for password reset links etc.)
+  STOREFRONT_URL: z.string().default('http://localhost:5173'),
+
+  // Health check API key (optional — if set, /health/detailed requires this key)
+  HEALTH_CHECK_KEY: z.string().optional(),
+
   // Swagger Docs Auth (dev only)
   SWAGGER_USER: z.string().default('admin'),
   SWAGGER_PASSWORD: z.string().default('docs'),

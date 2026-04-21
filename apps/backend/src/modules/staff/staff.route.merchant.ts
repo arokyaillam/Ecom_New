@@ -158,7 +158,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
       role: result.user.role,
     });
 
-    reply.setCookie('token', jwtToken, {
+    reply.setCookie('access_token', jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',

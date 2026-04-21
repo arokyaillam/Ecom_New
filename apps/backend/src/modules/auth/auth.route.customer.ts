@@ -320,8 +320,8 @@ export default async function customerAuthRoutes(fastify: FastifyInstance) {
       await fastify.emailService.sendEmail({
         to: email,
         subject: 'Reset your password',
-        html: `<p>Use this token to reset your password:</p><p><code>${result.token}</code></p>`,
-        text: `Reset your password. Token: ${result.token}`,
+        html: `<p>Click the link below to reset your password:</p><p><a href="${process.env.STOREFRONT_URL || 'http://localhost:5173'}/reset-password?token=${result.token}">Reset your password</a></p><p>If you did not request this, you can safely ignore this email.</p>`,
+        text: `Reset your password: ${process.env.STOREFRONT_URL || 'http://localhost:5173'}/reset-password?token=${result.token}`,
       });
     }
     return { success: true, message: 'If an account with that email exists, a reset link has been sent' };
