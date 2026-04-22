@@ -156,7 +156,13 @@ export const orderService = {
 
       // Atomically increment coupon usage with limit check inside transaction
       if (data.couponId) {
-        const result = await orderRepo.incrementCouponUsage(data.couponId, tx);
+        const result = await orderRepo.incrementCouponUsage(
+          data.couponId,
+          data.customerId,
+          order.id,
+          data.storeId,
+          tx,
+        );
 
         if (result.length === 0) {
           throw Object.assign(new Error('Coupon usage limit reached'), {

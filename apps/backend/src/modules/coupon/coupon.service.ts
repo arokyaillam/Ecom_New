@@ -1,7 +1,7 @@
 // Coupon service — business logic, calls repo, throws domain errors
 import { couponRepo, type CouponSelect } from './coupon.repo.js';
 import { ErrorCodes } from '../../errors/codes.js';
-import { minDecimal } from '../../lib/decimal.js';
+import { minDecimal, toCents, fromCents } from '../../lib/decimal.js';
 
 export const couponService = {
   async findByStoreId(storeId: string, opts?: { page?: number; limit?: number }) {
@@ -148,7 +148,7 @@ export const couponService = {
     return { id: couponId, deleted: true };
   },
 
-  async validateCoupon(code: string, storeId: string, orderAmount?: string) {
+  async validateCoupon(code: string, storeId: string, orderAmount?: string, customerId?: string) {
     const coupon = await couponRepo.findByCode(code, storeId);
 
     if (!coupon) {
@@ -183,10 +183,20 @@ export const couponService = {
       });
     }
 
+    // Per-customer usage limit check
+    if (customerId && coupon.usageLimitPerCustomer !== null && coupon.usageLimitPerCustomer !== undefined) {
+      const customerUsageCount = await couponRepo.countCustomerUsages(coupon.id, customerId);
+      if (customerUsageCount >= coupon.usageLimitPerCustomer) {
+        throw Object.assign(new Error('Coupon usage limit per customer has been reached'), {
+          code: ErrorCodes.COUPON_USAGE_EXCEEDED,
+        });
+      }
+    }
+
     if (coupon.minOrderAmount && orderAmount) {
-      const minAmount = parseFloat(coupon.minOrderAmount);
-      const amount = parseFloat(orderAmount);
-      if (amount < minAmount) {
+      const minAmountCents = toCents(coupon.minOrderAmount);
+      const amountCents = toCents(orderAmount);
+      if (amountCents < minAmountCents) {
         throw Object.assign(new Error(`Minimum order amount of ${coupon.minOrderAmount} required`), {
           code: ErrorCodes.INVALID_COUPON,
         });
@@ -216,16 +226,16 @@ export const couponService = {
 
     if (coupon.type === 'percentage') {
       // discountAmount = subtotal * (value / 100), capped at maxDiscountAmount
-      const subtotalCents = Math.round(parseFloat(subtotal) * 100);
-      const percentage = parseFloat(coupon.value);
-      let discountCents = Math.round((subtotalCents * percentage) / 100);
+      const subtotalCents = toCents(subtotal);
+      const percentageCents = toCents(coupon.value);
+      let discountCents = Math.round((subtotalCents * percentageCents) / 10000);
       if (coupon.maxDiscountAmount) {
-        const maxCents = Math.round(parseFloat(coupon.maxDiscountAmount) * 100);
+        const maxCents = toCents(coupon.maxDiscountAmount);
         if (discountCents > maxCents) {
           discountCents = maxCents;
         }
       }
-      discountAmount = (discountCents / 100).toFixed(2);
+      discountAmount = fromCents(discountCents);
     } else if (coupon.type === 'fixed') {
       // Fixed discount, capped at subtotal
       discountAmount = minDecimal(coupon.value, subtotal);

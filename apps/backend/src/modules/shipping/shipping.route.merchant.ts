@@ -1,5 +1,6 @@
 // Merchant Shipping Routes - Zone and rate CRUD
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { shippingService } from './shipping.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { zoneIdParamSchema, createZoneSchema, updateZoneSchema, createRateSchema, updateRateSchema } from './shipping.schema.js';
@@ -17,6 +18,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/shipping/zones
   fastify.post('/zones', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Create shipping zone', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const parsed = createZoneSchema.parse(request.body);
@@ -36,6 +38,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/shipping/zones/:id
   fastify.patch('/zones/:id', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Update shipping zone', security: [{ cookieAuth: [] }] },
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
@@ -46,6 +49,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/shipping/zones/:id
   fastify.delete('/zones/:id', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Delete shipping zone', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
@@ -66,6 +70,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/shipping/zones/:zoneId/rates
   fastify.post('/zones/:zoneId/rates', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Create shipping rate', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const { zoneId } = zoneIdParamSchema.parse(request.params);
@@ -76,6 +81,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/shipping/rates/:id
   fastify.patch('/rates/:id', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Update shipping rate', security: [{ cookieAuth: [] }] },
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
@@ -86,6 +92,7 @@ export default async function merchantShippingRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/shipping/rates/:id
   fastify.delete('/rates/:id', {
+    preHandler: requirePermission('shipping:write'),
     schema: { tags: ['Merchant Shipping'], summary: 'Delete shipping rate', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);

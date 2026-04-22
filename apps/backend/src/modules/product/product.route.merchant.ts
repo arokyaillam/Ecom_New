@@ -1,6 +1,7 @@
 // Merchant Products Routes - CRUD for products with variants
 import { FastifyInstance } from 'fastify';
 import { productService } from './product.service.js';
+import { requirePermission } from '../../scopes/merchant.js';
 import { idParamSchema, createProductSchema, updateProductSchema, listQuerySchema, merchantSearchSchema, createVariantSchema, updateVariantSchema, createVariantOptionSchema, updateVariantOptionSchema, variantIdParamSchema, variantWithProductParamSchema, optionIdParamSchema } from './product.schema.js';
 
 export default async function merchantProductsRoutes(fastify: FastifyInstance) {
@@ -34,6 +35,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/products
   fastify.post('/', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Create product',
@@ -46,6 +48,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
       ...parsed,
       storeId: request.storeId,
     });
+    await fastify.cacheService.deletePattern(`products:public:${request.storeId}:*`);
     reply.status(201).send({ product });
   });
 
@@ -65,6 +68,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/products/:id
   fastify.patch('/:id', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Update product',
@@ -75,11 +79,13 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
     const { id } = idParamSchema.parse(request.params);
     const parsed = updateProductSchema.parse(request.body);
     const product = await productService.update(id, request.storeId, parsed);
+    await fastify.cacheService.deletePattern(`products:public:${request.storeId}:*`);
     return { product };
   });
 
   // DELETE /api/v1/merchant/products/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Delete product',
@@ -89,6 +95,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);
     await productService.delete(id, request.storeId);
+    await fastify.cacheService.deletePattern(`products:public:${request.storeId}:*`);
     reply.status(204).send();
   });
 
@@ -96,6 +103,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/products/:id/variants
   fastify.post('/:id/variants', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Create product variant',
@@ -115,6 +123,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/products/:productId/variants/:variantId
   fastify.patch('/:productId/variants/:variantId', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Update product variant',
@@ -130,6 +139,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/products/:productId/variants/:variantId
   fastify.delete('/:productId/variants/:variantId', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Delete product variant',
@@ -146,6 +156,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/products/:variantId/options
   fastify.post('/:variantId/options', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Create variant option',
@@ -165,6 +176,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/products/options/:optionId
   fastify.patch('/options/:optionId', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Update variant option',
@@ -180,6 +192,7 @@ export default async function merchantProductsRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/products/options/:optionId
   fastify.delete('/options/:optionId', {
+    preHandler: requirePermission('products:write'),
     schema: {
       tags: ['Merchant Products'],
       summary: 'Delete variant option',

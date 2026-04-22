@@ -31,7 +31,7 @@ export const actions: Actions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.data),
-    }, host);
+    }, host, event.locals.csrfToken);
 
     forwardCookies(res, cookies as any);
 

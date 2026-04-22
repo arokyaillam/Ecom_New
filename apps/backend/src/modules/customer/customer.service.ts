@@ -137,4 +137,36 @@ export const customerService = {
     // Return the full customer including password for auth verification
     return customerRepo.findByEmail(email, storeId);
   },
+
+  async gdprExport(customerId: string, storeId: string) {
+    const customer = await customerRepo.findFullProfileForExport(customerId, storeId);
+
+    if (!customer) {
+      throw Object.assign(new Error('Customer not found'), {
+        code: ErrorCodes.CUSTOMER_NOT_FOUND,
+      });
+    }
+
+    return customer;
+  },
+
+  async deleteProfile(customerId: string, storeId: string) {
+    const customer = await customerRepo.findById(customerId, storeId);
+
+    if (!customer) {
+      throw Object.assign(new Error('Customer not found'), {
+        code: ErrorCodes.CUSTOMER_NOT_FOUND,
+      });
+    }
+
+    const anonymized = await customerRepo.anonymizeCustomer(customerId, storeId);
+
+    // Strip password from response
+    if (anonymized) {
+      const { password: _, ...result } = anonymized;
+      return result;
+    }
+
+    return anonymized;
+  },
 };

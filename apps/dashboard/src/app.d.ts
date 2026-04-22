@@ -5,6 +5,7 @@ declare global {
       storeId?: string;
       userRole?: string;
       superAdminId?: string;
+      csrfToken?: string;
     }
     // interface Error {}
     // interface PageData {}

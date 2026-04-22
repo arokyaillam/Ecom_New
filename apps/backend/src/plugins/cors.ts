@@ -18,15 +18,10 @@ export default fp(async function corsPlugin(fastify: FastifyInstance) {
       }
 
       if (env.isDevelopment) {
-        // In development: allow any localhost/127.0.0.1 origin
+        // In development: allow only known localhost ports
         try {
           const url = new URL(origin);
-          if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-            callback(null, true);
-            return;
-          }
-          // Also allow any subdomain of localhost (e.g., techgear.localhost:3000)
-          if (url.hostname.endsWith('.localhost')) {
+          if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && [3000, 5173, 5174].includes(Number(url.port))) {
             callback(null, true);
             return;
           }

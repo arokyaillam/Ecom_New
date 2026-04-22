@@ -34,26 +34,37 @@ export default async function superAdminAuthRoutes(fastify: FastifyInstance) {
     // Update last login
     await authService.updateSuperAdminLastLogin(admin.id);
 
-    const jti = crypto.randomUUID();
+    const accessJti = crypto.randomUUID();
+    const refreshJti = crypto.randomUUID();
 
     const accessToken = await reply.jwtSign({
       superAdminId: admin.id,
       role: 'superAdmin',
-      jti,
+      jti: accessJti,
       type: 'access',
     });
 
     const refreshToken = await reply.jwtSign({
       superAdminId: admin.id,
       role: 'superAdmin',
-      jti,
+      jti: refreshJti,
       type: 'refresh',
     }, { expiresIn: '7d' });
 
-    await authService.storeRefreshToken(fastify.redis, 'admin', admin.id, jti);
+    await authService.storeRefreshToken(fastify.redis, 'admin', admin.id, refreshJti);
 
     reply.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: ACCESS_MAX_AGE });
     reply.setCookie('refresh_token', refreshToken, { ...cookieOptions, maxAge: REFRESH_MAX_AGE });
+
+    // Set CSRF token cookie (readable by JS, strict sameSite)
+    const csrfToken = crypto.randomUUID();
+    reply.setCookie('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: REFRESH_MAX_AGE,
+      path: '/',
+    });
 
     return {
       success: true,
@@ -130,19 +141,20 @@ export default async function superAdminAuthRoutes(fastify: FastifyInstance) {
       decoded.role,
     );
 
-    const newJti = newPayload.jti;
+    const accessJti = crypto.randomUUID();
+    const refreshJti = newPayload.jti;
 
     const accessToken = await reply.jwtSign({
       superAdminId: newPayload.superAdminId,
       role: newPayload.role,
-      jti: newJti,
+      jti: accessJti,
       type: 'access',
     });
 
     const refreshToken = await reply.jwtSign({
       superAdminId: newPayload.superAdminId,
       role: newPayload.role,
-      jti: newJti,
+      jti: refreshJti,
       type: 'refresh',
     }, { expiresIn: '7d' });
 

@@ -1,6 +1,6 @@
 // Coupon repository — Drizzle queries only, no business logic
 import { db } from '../../db/index.js';
-import { coupons } from '../../db/schema.js';
+import { coupons, couponUsages } from '../../db/schema.js';
 import { eq, and, desc, count } from 'drizzle-orm';
 
 export type CouponSelect = typeof coupons.$inferSelect;
@@ -56,5 +56,20 @@ export const couponRepo = {
     return db
       .delete(coupons)
       .where(and(eq(coupons.id, couponId), eq(coupons.storeId, storeId)));
+  },
+
+  // ─── Per-customer coupon usage tracking ───
+
+  async countCustomerUsages(couponId: string, customerId: string) {
+    const rows = await db
+      .select({ count: count() })
+      .from(couponUsages)
+      .where(and(eq(couponUsages.couponId, couponId), eq(couponUsages.customerId, customerId)));
+    return rows[0]?.count ?? 0;
+  },
+
+  async insertCouponUsage(data: typeof couponUsages.$inferInsert) {
+    const [row] = await db.insert(couponUsages).values(data).returning();
+    return row;
   },
 };

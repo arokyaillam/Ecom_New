@@ -11,18 +11,32 @@ vi.mock('./coupon.repo.js', () => ({
     create: vi.fn(),
     update: vi.fn(),
     deleteById: vi.fn(),
+    countCustomerUsages: vi.fn(),
   },
 }));
 import { couponRepo } from './coupon.repo.js';
 const mockRepo = couponRepo as any;
 
-// ─── Mock minDecimal ───
+// ─── Mock decimal helpers ───
 vi.mock('../../lib/decimal.js', () => ({
   minDecimal: vi.fn((a: string, b: string) => {
-    // Simple implementation: return the smaller value
     const aNum = parseFloat(a);
     const bNum = parseFloat(b);
     return aNum <= bNum ? a : b;
+  }),
+  toCents: vi.fn((value: string) => {
+    const parts = value.split('.');
+    const whole = parts[0] || '0';
+    const fractional = (parts[1] || '').padEnd(2, '0').slice(0, 2);
+    return Math.round(Number(whole) * 100 + Number(fractional));
+  }),
+  fromCents: vi.fn((cents: number) => {
+    const isNegative = cents < 0;
+    const absCents = Math.abs(cents);
+    const whole = Math.floor(absCents / 100);
+    const frac = absCents % 100;
+    const sign = isNegative ? '-' : '';
+    return `${sign}${whole}.${frac.toString().padStart(2, '0')}`;
   }),
 }));
 
@@ -146,6 +160,7 @@ describe('couponService.validateCoupon', () => {
     expiresAt: null,
     usageLimit: null,
     usageCount: 0,
+    usageLimitPerCustomer: 1,
     minOrderAmount: null,
   };
 
@@ -205,6 +220,30 @@ describe('couponService.validateCoupon', () => {
 
     const result = await couponService.validateCoupon('SAVE10', 's1');
     expect(result).toBeDefined();
+  });
+
+  it('throws COUPON_USAGE_EXCEEDED when per-customer limit reached', async () => {
+    mockRepo.findByCode.mockResolvedValueOnce({ ...baseCoupon, usageLimitPerCustomer: 2 });
+    mockRepo.countCustomerUsages.mockResolvedValueOnce(2);
+
+    await expect(couponService.validateCoupon('SAVE10', 's1', undefined, 'cust1'))
+      .rejects.toMatchObject({ code: ErrorCodes.COUPON_USAGE_EXCEEDED });
+  });
+
+  it('passes per-customer check when under limit', async () => {
+    mockRepo.findByCode.mockResolvedValueOnce({ ...baseCoupon, usageLimitPerCustomer: 2 });
+    mockRepo.countCustomerUsages.mockResolvedValueOnce(1);
+
+    const result = await couponService.validateCoupon('SAVE10', 's1', undefined, 'cust1');
+    expect(result).toBeDefined();
+  });
+
+  it('skips per-customer check when customerId not provided', async () => {
+    mockRepo.findByCode.mockResolvedValueOnce({ ...baseCoupon, usageLimitPerCustomer: 1 });
+
+    const result = await couponService.validateCoupon('SAVE10', 's1');
+    expect(result).toBeDefined();
+    expect(mockRepo.countCustomerUsages).not.toHaveBeenCalled();
   });
 
   it('throws INVALID_COUPON when order amount below minOrderAmount', async () => {

@@ -1,5 +1,6 @@
 // Merchant Store Routes - GET/PATCH store info
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { storeService } from './store.service.js';
 import { merchantUpdateStoreSchema as updateStoreSchema } from './store.schema.js';
 
@@ -21,6 +22,7 @@ export default async function merchantStoreRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/store
   fastify.patch('/', {
+    preHandler: requirePermission('store:write'),
     schema: {
       tags: ['Merchant Store'],
       summary: 'Update store details',

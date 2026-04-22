@@ -30,7 +30,7 @@ export const actions: Actions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.data),
-    }, host);
+    }, host, event.locals.csrfToken);
 
     if (!res.ok) {
       let message = 'Failed to send reset email. Please try again.';

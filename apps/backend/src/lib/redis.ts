@@ -7,7 +7,11 @@ import IORedis from 'ioredis';
 const RedisConstructor = (IORedis as any).default || IORedis;
 
 export function createRedisClient(url: string, options: Record<string, unknown> = {}): RedisClientType {
-  return new RedisConstructor(url, options);
+  const opts: Record<string, unknown> = { ...options };
+  if (url.startsWith('rediss://')) {
+    opts.tls = {};
+  }
+  return new RedisConstructor(url, opts);
 }
 
 // Define Redis client type based on what we actually use

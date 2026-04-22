@@ -8,7 +8,7 @@ import publicScope from './scopes/public.js';
 import merchantScope from './scopes/merchant.js';
 import customerScope from './scopes/customer.js';
 import superAdminScope from './scopes/superAdmin.js';
-import { db, client } from './db/index.js';
+import { db, client, getPoolMetrics } from './db/index.js';
 import { createCacheService } from './services/cache.service.js';
 import { createQueueService } from './services/queue.service.js';
 import { createEmailService } from './services/email.service.js';
@@ -18,15 +18,72 @@ import { pricingService } from './modules/pricing/pricing.service.js';
 import { staffService } from './modules/staff/staff.service.js';
 import { paymentService } from './modules/payment/payment.service.js';
 import { createEmailProcessor } from './services/emailProcessor.service.js';
+import { ErrorCodes } from './errors/codes.js';
 import { sql } from 'drizzle-orm';
 
+function isPrivateIp(ip: string): boolean {
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+  // 10.0.0.0/8
+  if (parts[0] === 10) return true;
+  // 172.16.0.0/12
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  // 192.168.0.0/16
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  return false;
+}
+
 const fastify = Fastify({
-  logger: { level: env.LOG_LEVEL },
+  logger: {
+    level: env.LOG_LEVEL,
+    ...(env.isProduction
+      ? {}
+      : { transport: { target: 'pino-pretty', options: { colorize: true } } }),
+  },
+  genReqId: () => crypto.randomUUID(),
   trustProxy: env.isProduction ? 1 : true,
 });
 
 // Register plugins
 await fastify.register(plugins);
+
+// Request ID propagation hook
+fastify.addHook('onRequest', async (request, _reply) => {
+  const requestId = request.id;
+  // Store requestId on the request for downstream use
+  (request as unknown as Record<string, string>).requestId = requestId;
+});
+
+// CSRF token validation hook
+fastify.addHook('onRequest', async (request, reply) => {
+  const method = request.method;
+  const url = request.url;
+
+  // Skip CSRF check for safe methods
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+
+  // Skip auth endpoints (where CSRF cookie is set) and webhooks
+  if (
+    url.endsWith('/auth/login') ||
+    url.endsWith('/auth/register') ||
+    url.endsWith('/auth/refresh') ||
+    url.endsWith('/auth/logout') ||
+    url.includes('/webhook') ||
+    url.includes('/staff/invitations/')
+  ) {
+    return;
+  }
+
+  // Validate CSRF token from header against cookie
+  const csrfCookie = request.cookies.csrf_token;
+  const csrfHeader = request.headers['x-csrf-token'] as string | undefined;
+
+  if (csrfCookie && csrfHeader !== csrfCookie) {
+    reply.status(403).send({ error: 'Forbidden', code: ErrorCodes.PERMISSION_DENIED, message: 'Invalid CSRF token' });
+    return;
+  }
+});
 
 // Decorate services
 const cacheService = createCacheService(fastify.redis);
@@ -66,6 +123,13 @@ fastify.get('/health/ready', async (_request, reply) => {
 
 // Detailed health check - database, redis, queue, memory (protected by API key or internal network)
 fastify.get('/health/detailed', async (request, reply) => {
+  // IP allowlist: only allow private/internal networks
+  const clientIp = request.ip;
+  if (!isPrivateIp(clientIp)) {
+    reply.status(403).send({ error: 'Forbidden', message: 'Access denied from this IP' });
+    return;
+  }
+
   // Require a static health-check API key via query param or header
   const healthKey = request.headers['x-health-key'] || (request.query as Record<string, string>)['health_key'];
   if (env.HEALTH_CHECK_KEY && healthKey !== env.HEALTH_CHECK_KEY) {
@@ -106,6 +170,14 @@ fastify.get('/health/detailed', async (request, reply) => {
     status: mem.rss < 512 * 1024 * 1024 ? 'ok' : 'warning',
   };
 
+  // Pool metrics
+  let poolMetrics: { active: number; idle: number; waiting: number } | undefined;
+  try {
+    poolMetrics = await getPoolMetrics();
+  } catch {
+    poolMetrics = undefined;
+  }
+
   const allOk = Object.values(checks).every((c) => c.status === 'ok');
 
   return {
@@ -118,6 +190,7 @@ fastify.get('/health/detailed', async (request, reply) => {
       heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
       heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
     },
+    pool: poolMetrics,
   };
 });
 

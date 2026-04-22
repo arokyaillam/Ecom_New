@@ -24,16 +24,17 @@ export async function findProvider(storeId: string, provider: string) {
 export async function upsertProvider(
   storeId: string,
   provider: string,
-  data: { isEnabled: boolean; config?: Record<string, string> },
+  data: { isEnabled: boolean; config?: Record<string, string> | string },
 ) {
   const existing = await findProvider(storeId, provider);
+  const configValue = typeof data.config === 'string' ? null : data.config;
 
   if (existing) {
     const [updated] = await db
       .update(paymentProviders)
       .set({
         isEnabled: data.isEnabled,
-        config: data.config,
+        config: configValue as Record<string, string> | null | undefined,
         updatedAt: new Date(),
       })
       .where(and(
@@ -50,7 +51,7 @@ export async function upsertProvider(
       storeId,
       provider,
       isEnabled: data.isEnabled,
-      config: data.config,
+      config: configValue as Record<string, string> | null | undefined,
     })
     .returning();
   return inserted;

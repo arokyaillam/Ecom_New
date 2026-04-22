@@ -1,5 +1,6 @@
 // Merchant Categories Routes - CRUD for categories and subcategories
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { categoryService } from './category.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { createCategorySchema, updateCategorySchema, listQuerySchema, createSubcategorySchema, updateSubcategorySchema, categoryIdParamSchema, categorySubcategoryIdParamSchema } from './category.schema.js';
@@ -21,6 +22,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // POST /api/v1/merchant/categories
   fastify.post('/', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Create category',
@@ -52,6 +54,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // PATCH /api/v1/merchant/categories/:id
   fastify.patch('/:id', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Update category',
@@ -67,6 +70,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // DELETE /api/v1/merchant/categories/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Delete category',
@@ -83,6 +87,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // POST /api/v1/merchant/categories/:categoryId/subcategories
   fastify.post('/:categoryId/subcategories', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Create subcategory',
@@ -102,6 +107,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // PATCH /api/v1/merchant/categories/:categoryId/subcategories/:subcategoryId
   fastify.patch('/:categoryId/subcategories/:subcategoryId', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Update subcategory',
@@ -117,6 +123,7 @@ export default async function merchantCategoriesRoutes(fastify: FastifyInstance)
 
   // DELETE /api/v1/merchant/categories/:categoryId/subcategories/:subcategoryId
   fastify.delete('/:categoryId/subcategories/:subcategoryId', {
+    preHandler: requirePermission('categories:write'),
     schema: {
       tags: ['Merchant Categories'],
       summary: 'Delete subcategory',

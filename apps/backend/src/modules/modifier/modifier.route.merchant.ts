@@ -1,5 +1,6 @@
 // Merchant Modifiers Routes - CRUD for modifier groups and options
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { modifierService } from './modifier.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { listQuerySchema, createModifierGroupSchema, updateModifierGroupSchema, createModifierOptionSchema, updateModifierOptionSchema, productIdQuerySchema, groupIdParamSchema, optionIdParamSchema } from './modifier.schema.js';
@@ -35,6 +36,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // POST /api/v1/merchant/modifiers
   fastify.post('/', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Create modifier group',
@@ -66,6 +68,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // PATCH /api/v1/merchant/modifiers/:id
   fastify.patch('/:id', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Update modifier group',
@@ -81,6 +84,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // DELETE /api/v1/merchant/modifiers/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Delete modifier group',
@@ -97,6 +101,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // POST /api/v1/merchant/modifiers/:groupId/options
   fastify.post('/:groupId/options', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Create modifier option',
@@ -116,6 +121,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // PATCH /api/v1/merchant/modifiers/options/:optionId
   fastify.patch('/options/:optionId', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Update modifier option',
@@ -131,6 +137,7 @@ export default async function merchantModifiersRoutes(fastify: FastifyInstance) 
 
   // DELETE /api/v1/merchant/modifiers/options/:optionId
   fastify.delete('/options/:optionId', {
+    preHandler: requirePermission('modifiers:write'),
     schema: {
       tags: ['Merchant Modifiers'],
       summary: 'Delete modifier option',

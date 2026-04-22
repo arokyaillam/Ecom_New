@@ -1,5 +1,6 @@
 // Merchant Orders Routes - Order listing, detail, status updates
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { orderService } from './order.service.js';
 import { merchantListQuerySchema as listQuerySchema, idParamSchema, updateStatusSchema } from './order.schema.js';
 
@@ -34,6 +35,7 @@ export default async function merchantOrdersRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/orders/:id/status
   fastify.patch('/:id/status', {
+    preHandler: requirePermission('orders:write'),
     schema: {
       tags: ['Merchant Orders'],
       summary: 'Update order status',

@@ -2,7 +2,7 @@
 // Calls pricingRepo for DB lookups and delegates coupon/shipping/tax to their services.
 // NEVER imports from db/index.js directly.
 import { ErrorCodes } from '../../errors/codes.js';
-import { addDecimals, subtractDecimals, multiplyDecimalByInt, minDecimal } from '../../lib/decimal.js';
+import { addDecimals, subtractDecimals, multiplyDecimalByInt, minDecimal, toCents, fromCents } from '../../lib/decimal.js';
 import { couponService } from '../coupon/coupon.service.js';
 import { shippingService } from '../shipping/shipping.service.js';
 import { taxService } from '../tax/tax.service.js';
@@ -189,15 +189,13 @@ export const pricingService = {
     let discountAmount = '0.00';
     if (product.discount && product.discount !== '0' && product.discountType) {
       if (product.discountType === 'Percent') {
-        // Percentage discount: effectivePrice * discount / 100
-        const priceCents = Math.round(parseFloat(effectivePrice) * 100);
-        const percentage = parseFloat(product.discount);
-        const discountCents = Math.round((priceCents * percentage) / 100);
-        discountAmount = (discountCents / 100).toFixed(2);
+        // Percentage discount: effectivePrice * discount / 100 using integer cents
+        const priceCents = toCents(effectivePrice);
+        const percentageCents = toCents(product.discount);
+        const discountCents = Math.round((priceCents * percentageCents) / 10000);
+        discountAmount = fromCents(discountCents);
         // Cap discount at the effective price
-        if (parseFloat(discountAmount) > parseFloat(effectivePrice)) {
-          discountAmount = effectivePrice;
-        }
+        discountAmount = minDecimal(discountAmount, effectivePrice);
         effectivePrice = subtractDecimals(effectivePrice, discountAmount);
       } else if (product.discountType === 'Fixed') {
         // Fixed discount: subtract the amount, cap at effective price
@@ -207,7 +205,7 @@ export const pricingService = {
     }
 
     // Ensure effective price is never negative
-    if (parseFloat(effectivePrice) < 0) {
+    if (toCents(effectivePrice) < 0) {
       effectivePrice = '0.00';
     }
 
@@ -236,7 +234,7 @@ export const pricingService = {
    * Compute the full order pricing including items, coupon, shipping, and tax.
    */
   async computeOrderPricing(params: ComputeOrderPricingParams): Promise<ComputedOrderPricing> {
-    const { storeId, items, couponCode, shippingAddress, shippingRateId } = params;
+    const { storeId, items, couponCode, customerId, shippingAddress, shippingRateId } = params;
 
     // 1. Compute each item's price
     const computedItems: ComputedItemPrice[] = [];
@@ -264,14 +262,14 @@ export const pricingService = {
     let coupon: typeof import('../../db/schema.js').coupons.$inferSelect | null = null;
 
     if (couponCode) {
-      coupon = await couponService.validateCoupon(couponCode, storeId, subtotal);
+      coupon = await couponService.validateCoupon(couponCode, storeId, subtotal, customerId);
       const productIds = computedItems.map((item) => item.productId);
       const discountResult = await couponService.calculateDiscount(coupon, subtotal, productIds);
       discount = discountResult.discountAmount;
       freeShipping = discountResult.freeShipping;
     }
 
-    const subtotalAfterDiscount = parseFloat(subtotal) >= parseFloat(discount)
+    const subtotalAfterDiscount = toCents(subtotal) >= toCents(discount)
       ? subtractDecimals(subtotal, discount)
       : '0.00';
 
@@ -315,7 +313,7 @@ export const pricingService = {
       taxBreakdown = taxResult.breakdown;
     }
 
-    const taxString = tax.toFixed(2);
+    const taxString = fromCents(Math.round(tax * 100));
 
     // 6. Compute total
     const total = addDecimals(addDecimals(subtotalAfterDiscount, shipping), taxString);

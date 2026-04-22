@@ -1,5 +1,6 @@
 // Merchant Customers Routes - Customer listing, detail, create
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { customerService } from './customer.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { listQuerySchema, createCustomerSchema, updateCustomerSchema } from './customer.schema.js';
@@ -27,6 +28,7 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
       description: 'Create a new customer in the authenticated merchant store',
       security: [{ cookieAuth: [] }],
     },
+    preHandler: requirePermission('customers:write'),
   }, async (request, reply) => {
     const parsed = createCustomerSchema.parse(request.body);
     const customer = await customerService.create({
@@ -58,6 +60,7 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
       description: 'Partial update of a customer in the authenticated merchant store',
       security: [{ cookieAuth: [] }],
     },
+    preHandler: requirePermission('customers:write'),
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = updateCustomerSchema.parse(request.body);

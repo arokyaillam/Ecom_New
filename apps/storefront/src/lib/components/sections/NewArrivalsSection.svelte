@@ -3,8 +3,6 @@
   import type { ThemeType } from '@repo/ui/themes';
   import { cn } from '$lib/utils';
 
-  // TODO: import ProductCard from '$lib/components/product/ProductCard.svelte';
-
   interface Props {
     products: Product[];
     themeType: ThemeType;
@@ -67,7 +65,6 @@
   {:else}
     <div class={cn('grid gap-4 sm:gap-6', colsClass)}>
       {#each products as product (product.id)}
-        <!-- TODO: Replace with <ProductCard {product} {themeType} {showAddToCart} /> -->
         <article
           class="group bg-[var(--color-surface)] rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden transition-shadow duration-300 hover:shadow-lg relative"
         >

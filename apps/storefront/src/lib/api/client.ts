@@ -4,6 +4,11 @@ interface ApiOptions extends RequestInit {
   host?: string;
 }
 
+function getCookie(name: string): string | undefined {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([$?*|{}\\[\\]\\\\/^])/g, '\\\\$1') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiOptions = {},
@@ -15,6 +20,14 @@ export async function apiFetch<T>(
 
   if (host) {
     headers.set('Host', host);
+  }
+
+  // Forward CSRF token on mutating requests
+  if (['POST', 'PATCH', 'DELETE', 'PUT'].includes(fetchOptions.method || '')) {
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) {
+      headers.set('X-CSRF-Token', csrfToken);
+    }
   }
 
   const res = await fetch(`${API_BASE}${path}`, {

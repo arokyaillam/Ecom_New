@@ -59,6 +59,16 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
     reply.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: ACCESS_MAX_AGE });
     reply.setCookie('refresh_token', refreshToken, { ...cookieOptions, maxAge: REFRESH_MAX_AGE });
 
+    // Set CSRF token cookie (readable by JS, strict sameSite)
+    const csrfToken = crypto.randomUUID();
+    reply.setCookie('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: REFRESH_MAX_AGE,
+      path: '/',
+    });
+
     return {
       success: true,
       user: {
@@ -107,6 +117,16 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
 
     reply.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: ACCESS_MAX_AGE });
     reply.setCookie('refresh_token', refreshToken, { ...cookieOptions, maxAge: REFRESH_MAX_AGE });
+
+    // Set CSRF token cookie
+    const csrfToken = crypto.randomUUID();
+    reply.setCookie('csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: REFRESH_MAX_AGE,
+      path: '/',
+    });
 
     reply.status(201).send({
       success: true,
@@ -193,13 +213,14 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
       decoded.role,
     );
 
-    const newJti = newPayload.jti;
+    const accessJti = crypto.randomUUID();
+    const refreshJti = newPayload.jti;
 
     const accessToken = await reply.jwtSign({
       userId: newPayload.userId,
       storeId: newPayload.storeId,
       role: newPayload.role,
-      jti: newJti,
+      jti: accessJti,
       type: 'access',
     });
 
@@ -207,7 +228,7 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
       userId: newPayload.userId,
       storeId: newPayload.storeId,
       role: newPayload.role,
-      jti: newJti,
+      jti: refreshJti,
       type: 'refresh',
     }, { expiresIn: '7d' });
 

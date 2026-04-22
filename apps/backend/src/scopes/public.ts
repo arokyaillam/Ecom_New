@@ -2,8 +2,20 @@
 // Used for storefront browsing, product viewing, cart operations
 
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { generateCsrfToken, setCsrfCookie, validateCsrf } from '../lib/csrf.js';
 
 export default async function publicScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
+  // CSRF: set cookie on safe methods if missing; validate on mutating methods
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) && !request.cookies.csrf_token) {
+      setCsrfCookie(reply, generateCsrfToken());
+      return;
+    }
+    if (!validateCsrf(request, reply)) {
+      return;
+    }
+  });
+
   // Tenant resolution from Host header domain/subdomain
   fastify.addHook('onRequest', async (request, _reply) => {
     const rawHost = request.headers.host;

@@ -17,7 +17,7 @@ export default async function customerCouponRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const parsed = validateSchema.parse(request.body);
-    const coupon = await couponService.validateCoupon(parsed.code, request.storeId, parsed.orderAmount);
+    const coupon = await couponService.validateCoupon(parsed.code, request.storeId, parsed.orderAmount, request.customerId);
     return { valid: true, coupon };
   });
 }

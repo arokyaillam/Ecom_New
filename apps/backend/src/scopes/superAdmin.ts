@@ -3,8 +3,20 @@
 
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { ErrorCodes } from '../errors/codes.js';
+import { generateCsrfToken, setCsrfCookie, validateCsrf } from '../lib/csrf.js';
 
 export default async function superAdminScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
+  // CSRF: set cookie on safe methods if missing; validate on mutating methods
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) && !request.cookies.csrf_token) {
+      setCsrfCookie(reply, generateCsrfToken());
+      return;
+    }
+    if (!validateCsrf(request, reply)) {
+      return;
+    }
+  });
+
   // SuperAdmin JWT verification hook - runs on ALL admin routes EXCEPT login/logout
   fastify.addHook('onRequest', async (request, reply) => {
     // Skip auth for login, logout, and refresh routes only

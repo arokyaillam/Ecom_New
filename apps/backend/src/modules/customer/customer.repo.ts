@@ -123,4 +123,52 @@ export const customerRepo = {
       .returning();
     return updated;
   },
+
+  async findFullProfileForExport(customerId: string, storeId: string, tx?: DbExecutor) {
+    const executor = tx ?? db;
+    return executor.query.customers.findFirst({
+      where: and(eq(customers.id, customerId), eq(customers.storeId, storeId)),
+      columns: {
+        id: true,
+        storeId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        avatarUrl: true,
+        isVerified: true,
+        marketingEmails: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      with: {
+        addresses: true,
+        orders: true,
+        reviews: true,
+        couponUsages: true,
+      },
+    });
+  },
+
+  async anonymizeCustomer(customerId: string, storeId: string, tx?: DbExecutor) {
+    const executor = tx ?? db;
+    const [updated] = await executor
+      .update(customers)
+      .set({
+        email: `deleted-${customerId}@anonymized.local`,
+        firstName: 'Deleted User',
+        lastName: null,
+        phone: null,
+        avatarUrl: null,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        marketingEmails: false,
+        isVerified: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(customers.id, customerId), eq(customers.storeId, storeId)))
+      .returning();
+    return updated;
+  },
 };

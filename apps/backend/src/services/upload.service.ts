@@ -81,6 +81,14 @@ export const createUploadService = () => {
       storeId: string,
       folder: string = 'products',
     ): Promise<UploadResult> {
+      const ALLOWED_FOLDERS = ['products', 'avatars', 'logos', 'banners'] as const;
+      if (!ALLOWED_FOLDERS.includes(folder as typeof ALLOWED_FOLDERS[number])) {
+        throw Object.assign(
+          new Error(`Invalid upload folder. Allowed: ${ALLOWED_FOLDERS.join(', ')}`),
+          { code: ErrorCodes.VALIDATION_ERROR },
+        );
+      }
+
       const fileType = await this.validateFile(buffer);
 
       const filename = `${folder}/${storeId}/${Date.now()}-${crypto.randomUUID()}.${fileType.ext}`;

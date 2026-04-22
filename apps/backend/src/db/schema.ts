@@ -2,7 +2,7 @@
 // Using Drizzle ORM with PostgreSQL
 // Copy exactly from skill reference - no changes
 
-import { pgTable, text, timestamp, uuid, integer, decimal, boolean, json, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, decimal, boolean, json, unique, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const superAdmins = pgTable("super_admins", {
@@ -126,7 +126,9 @@ export const products = pgTable("products", {
   isPublished: boolean("is_published").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("products_store_id_is_published_idx").on(table.storeId, table.isPublished),
+]);
 
 export const productVariants = pgTable("product_variants", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -216,6 +218,7 @@ export const customers = pgTable("customers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   emailStoreUnique: unique().on(table.email, table.storeId),
+  storeIdEmailIdx: index("customers_store_id_email_idx").on(table.storeId, table.email),
 }));
 
 export const customerAddresses = pgTable("customer_addresses", {
@@ -258,7 +261,21 @@ export const coupons = pgTable("coupons", {
   categoryIds: text("category_ids"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("coupons_store_id_code_idx").on(table.storeId, table.code),
+]);
+
+export const couponUsages = pgTable("coupon_usages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  couponId: uuid("coupon_id").references(() => coupons.id).notNull(),
+  customerId: uuid("customer_id").references(() => customers.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+}, (table) => [
+  index("coupon_usages_coupon_customer_idx").on(table.couponId, table.customerId),
+  index("coupon_usages_store_id_idx").on(table.storeId),
+]);
 
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -309,7 +326,10 @@ export const orders = pgTable("orders", {
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("orders_store_id_status_created_at_idx").on(table.storeId, table.status, table.createdAt),
+  index("orders_store_id_customer_id_idx").on(table.storeId, table.customerId),
+]);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -343,7 +363,9 @@ export const reviews = pgTable("reviews", {
   respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("reviews_store_id_product_id_is_approved_idx").on(table.storeId, table.productId, table.isApproved),
+]);
 
 export const wishlists = pgTable("wishlists", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -558,6 +580,7 @@ export const customersRelations = relations(customers, ({ many, one }) => ({
   reviews: many(reviews),
   wishlist: many(wishlists),
   cart: one(carts),
+  couponUsages: many(couponUsages),
 }));
 
 export const customerAddressesRelations = relations(customerAddresses, ({ one }) => ({
@@ -666,6 +689,26 @@ export const couponsRelations = relations(coupons, ({ one, many }) => ({
     references: [stores.id],
   }),
   orders: many(orders),
+  usages: many(couponUsages),
+}));
+
+export const couponUsagesRelations = relations(couponUsages, ({ one }) => ({
+  store: one(stores, {
+    fields: [couponUsages.storeId],
+    references: [stores.id],
+  }),
+  coupon: one(coupons, {
+    fields: [couponUsages.couponId],
+    references: [coupons.id],
+  }),
+  customer: one(customers, {
+    fields: [couponUsages.customerId],
+    references: [customers.id],
+  }),
+  order: one(orders, {
+    fields: [couponUsages.orderId],
+    references: [orders.id],
+  }),
 }));
 
 export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
@@ -712,7 +755,7 @@ export const verificationTokens = pgTable("verification_tokens", {
   token: text("token").notNull().unique(),
   type: text("type").notNull(), // 'email_verification' | 'password_reset'
   userType: text("user_type").notNull(), // 'customer' | 'merchant'
-  storeId: uuid("store_id"), // nullable for merchant-level (no store context yet)
+  storeId: uuid("store_id").references(() => stores.id, { onDelete: 'cascade' }), // nullable for merchant-level (no store context yet)
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -720,10 +763,10 @@ export const verificationTokens = pgTable("verification_tokens", {
 
 export const staffInvitations = pgTable("staff_invitations", {
   id: uuid("id").primaryKey().defaultRandom(),
-  storeId: uuid("store_id").notNull(),
+  storeId: uuid("store_id").references(() => stores.id, { onDelete: 'cascade' }).notNull(),
   email: text("email").notNull(),
   role: text("role").notNull(), // 'MANAGER' | 'CASHIER'
-  invitedBy: uuid("invited_by").notNull(),
+  invitedBy: uuid("invited_by").references(() => users.id, { onDelete: 'set null' }),
   token: text("token").notNull().unique(),
   status: text("status").default("pending"), // 'pending' | 'accepted' | 'rejected' | 'expired'
   expiresAt: timestamp("expires_at").notNull(),
@@ -872,7 +915,10 @@ export const payments = pgTable("payments", {
   metadata: json("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("payments_store_id_provider_provider_payment_id_idx").on(table.storeId, table.provider, table.providerPaymentId),
+  index("payments_store_id_order_id_idx").on(table.storeId, table.orderId),
+]);
 
 // ─── Phase 3 Relations ───
 

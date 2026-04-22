@@ -3,6 +3,7 @@ declare global {
     interface Locals {
       customerId?: string;
       storeId?: string;
+      csrfToken?: string;
     }
     // interface Error {}
     // interface PageData {}

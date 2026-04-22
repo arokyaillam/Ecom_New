@@ -1,8 +1,19 @@
 // Public Products Routes - Browse and search published products
 import { FastifyInstance } from 'fastify';
+import { createHash } from 'node:crypto';
 import { productListSchema, productSearchSchema, idParamSchema } from './product.schema.js';
 import { productService } from './product.service.js';
 import { ErrorCodes } from '../../errors/codes.js';
+
+function hashFilters(obj: Record<string, unknown>): string {
+  const sorted = Object.keys(obj)
+    .sort()
+    .reduce<Record<string, unknown>>((acc, key) => {
+      acc[key] = obj[key];
+      return acc;
+    }, {});
+  return createHash('sha256').update(JSON.stringify(sorted)).digest('hex').slice(0, 16);
+}
 
 export default async function publicProductsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/public/products - List published products
@@ -17,11 +28,14 @@ export default async function publicProductsRoutes(fastify: FastifyInstance) {
       return { items: [], total: 0 };
     }
     const query = productListSchema.parse(request.query);
-    const result = await productService.findByStoreId(request.storeId, {
-      ...query,
-      isPublished: true,
-    });
-    return result;
+    const filters = { ...query, isPublished: true };
+    const cacheKey = `products:public:${request.storeId}:list:${hashFilters(filters)}`;
+
+    return fastify.cacheService.wrap(
+      cacheKey,
+      () => productService.findByStoreId(request.storeId, filters),
+      300, // 5 minutes
+    );
   });
 
   // GET /api/v1/public/products/search - Search products
@@ -36,11 +50,14 @@ export default async function publicProductsRoutes(fastify: FastifyInstance) {
       return { items: [], total: 0, limit: 20, offset: 0 };
     }
     const query = productSearchSchema.parse(request.query);
-    const result = await productService.search(request.storeId, {
-      ...query,
-      isPublished: true,
-    });
-    return result;
+    const filters = { ...query, isPublished: true };
+    const cacheKey = `products:public:${request.storeId}:search:${hashFilters(filters)}`;
+
+    return fastify.cacheService.wrap(
+      cacheKey,
+      () => productService.search(request.storeId, filters),
+      300, // 5 minutes
+    );
   });
 
   // GET /api/v1/public/products/:id - Get single published product
@@ -56,8 +73,14 @@ export default async function publicProductsRoutes(fastify: FastifyInstance) {
       return;
     }
     const { id } = idParamSchema.parse(request.params);
+    const cacheKey = `products:public:${request.storeId}:${id}`;
+
     try {
-      const product = await productService.findById(id, request.storeId);
+      const product = await fastify.cacheService.wrap(
+        cacheKey,
+        () => productService.findById(id, request.storeId),
+        600, // 10 minutes
+      );
       if (!product.isPublished) {
         reply.status(404).send({ error: 'Not Found', code: ErrorCodes.PRODUCT_NOT_FOUND, message: 'Product not found' });
         return;

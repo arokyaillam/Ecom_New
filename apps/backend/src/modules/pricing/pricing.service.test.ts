@@ -61,7 +61,7 @@ const baseProduct = {
   discountType: null,
   currentQuantity: 100,
   isPublished: true,
-  images: 'img1.jpg, img2.jpg',
+  images: ['img1.jpg', 'img2.jpg'],
 };
 
 const publishedProductNoDiscount = { ...baseProduct };
@@ -276,8 +276,8 @@ describe('pricingService.computeItemPrice', () => {
       ).rejects.toMatchObject({ code: ErrorCodes.INSUFFICIENT_INVENTORY });
     });
 
-    it('extracts first image from comma-separated images string', async () => {
-      const product = { ...baseProduct, images: '  first.png  , second.png ' };
+    it('extracts first image from images array', async () => {
+      const product = { ...baseProduct, images: ['first.png', 'second.png'] };
       mockPricingRepo.findProductById.mockResolvedValueOnce(product);
 
       const result = await pricingService.computeItemPrice({
@@ -875,7 +875,7 @@ describe('pricingService.computeOrderPricing', () => {
     expect(result.subtotalAfterDiscount).toBe('27.00');
     expect(result.coupon).toEqual(mockCoupon);
     expect(result.freeShipping).toBe(false);
-    expect(mockCouponService.validateCoupon).toHaveBeenCalledWith('SAVE10', 'store-1', '30.00');
+    expect(mockCouponService.validateCoupon).toHaveBeenCalledWith('SAVE10', 'store-1', '30.00', 'cust-1');
 
     itemSpy.mockRestore();
   });

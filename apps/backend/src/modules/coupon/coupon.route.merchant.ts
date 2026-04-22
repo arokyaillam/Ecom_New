@@ -1,5 +1,6 @@
 // Merchant Coupons Routes - CRUD for coupons
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { couponService } from './coupon.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { listQuerySchema, createCouponSchema, updateCouponSchema, validateSchema } from './coupon.schema.js';
@@ -21,6 +22,7 @@ export default async function merchantCouponsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/coupons
   fastify.post('/', {
+    preHandler: requirePermission('coupons:write'),
     schema: {
       tags: ['Merchant Coupons'],
       summary: 'Create coupon',
@@ -54,6 +56,7 @@ export default async function merchantCouponsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/coupons/:id
   fastify.patch('/:id', {
+    preHandler: requirePermission('coupons:write'),
     schema: {
       tags: ['Merchant Coupons'],
       summary: 'Update coupon',
@@ -79,6 +82,7 @@ export default async function merchantCouponsRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/coupons/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('coupons:write'),
     schema: {
       tags: ['Merchant Coupons'],
       summary: 'Delete coupon',
@@ -104,7 +108,7 @@ export default async function merchantCouponsRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const parsed = validateSchema.parse(request.body);
-    const coupon = await couponService.validateCoupon(parsed.code, request.storeId, parsed.orderAmount);
+    const coupon = await couponService.validateCoupon(parsed.code, request.storeId, parsed.orderAmount, undefined);
     return { valid: true, coupon };
   });
 }

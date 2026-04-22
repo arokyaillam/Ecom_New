@@ -1,5 +1,6 @@
 // Merchant Upload Routes - Image upload and delete with validation
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { ErrorCodes } from '../../errors/codes.js';
 import { deleteSchema } from './upload.schema.js';
 
@@ -9,6 +10,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export default async function merchantUploadRoutes(fastify: FastifyInstance) {
   // POST /api/v1/merchant/upload
   fastify.post('/', {
+    preHandler: requirePermission('upload:write'),
     schema: {
       tags: ['Merchant Upload'],
       summary: 'Upload image',
@@ -57,6 +59,7 @@ export default async function merchantUploadRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/upload
   fastify.delete('/', {
+    preHandler: requirePermission('upload:write'),
     schema: {
       tags: ['Merchant Upload'],
       summary: 'Delete image',

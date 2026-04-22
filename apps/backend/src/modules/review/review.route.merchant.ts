@@ -1,5 +1,6 @@
 // Merchant Reviews Routes - Review listing, moderation, response
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { reviewService } from './review.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { listQuerySchema, respondSchema, approveSchema } from './review.schema.js';
@@ -35,6 +36,7 @@ export default async function merchantReviewsRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/reviews/:id/approve - approve/reject review
   fastify.patch('/:id/approve', {
+    preHandler: requirePermission('reviews:write'),
     schema: {
       tags: ['Merchant Reviews'],
       summary: 'Approve or reject review',
@@ -52,6 +54,7 @@ export default async function merchantReviewsRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/reviews/:id/respond - respond to review
   fastify.post('/:id/respond', {
+    preHandler: requirePermission('reviews:write'),
     schema: {
       tags: ['Merchant Reviews'],
       summary: 'Respond to review',
@@ -69,6 +72,7 @@ export default async function merchantReviewsRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/reviews/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('reviews:write'),
     schema: {
       tags: ['Merchant Reviews'],
       summary: 'Delete review',

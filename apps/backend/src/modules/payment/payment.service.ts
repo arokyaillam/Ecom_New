@@ -2,10 +2,12 @@
 import crypto from 'node:crypto';
 import { db } from '../../db/index.js';
 import { payments } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { ErrorCodes } from '../../errors/codes.js';
 import { orderRepo } from '../order/order.repo.js';
 import * as repo from './payment.repo.js';
+import { encryptConfig, decryptConfig } from '../../lib/encryption.js';
+import { toCents } from '../../lib/decimal.js';
 
 /** Mask a secret string, showing only the last 4 characters. */
 function maskSecret(value: string | undefined): string {
@@ -23,6 +25,14 @@ function maskConfig(config: Record<string, string> | null | undefined): Record<s
   return masked;
 }
 
+/** Decrypt and mask a provider row for public API responses. */
+function decryptAndMaskProvider(provider: typeof repo.findProvider extends (...args: any[]) => Promise<infer R> ? NonNullable<R> : never) {
+  return {
+    ...provider,
+    config: maskConfig(decryptConfig(provider.config)),
+  };
+}
+
 /** Generate a UUID-based idempotency key. */
 function generateIdempotencyKey(): string {
   return crypto.randomUUID();
@@ -33,11 +43,8 @@ export const paymentService = {
 
   async getProviders(storeId: string) {
     const providers = await repo.findProvidersByStoreId(storeId);
-    // Mask API keys in responses
-    return providers.map((p) => ({
-      ...p,
-      config: maskConfig(p.config as Record<string, string> | null),
-    }));
+    // Decrypt and mask API keys in responses
+    return providers.map((p) => decryptAndMaskProvider(p));
   },
 
   async configureProvider(
@@ -66,8 +73,23 @@ export const paymentService = {
       }
     }
 
-    const result = await repo.upsertProvider(storeId, provider, { isEnabled, config });
-    return { ...result, config: maskConfig(result.config as Record<string, string> | null) };
+    // Encrypt config before saving (skip if empty or no encryption key configured)
+    let encryptedConfig: string | undefined;
+    if (config && Object.keys(config).length > 0) {
+      try {
+        encryptedConfig = encryptConfig(config);
+      } catch {
+        // If encryption key is missing in dev, store plaintext as fallback (legacy mode)
+        encryptedConfig = undefined;
+      }
+    }
+
+    const result = await repo.upsertProvider(storeId, provider, {
+      isEnabled,
+      config: encryptedConfig ? (encryptedConfig as unknown as Record<string, string>) : config,
+    });
+
+    return { ...result, config: maskConfig(decryptConfig(result.config)) };
   },
 
   // ─── Payment intent creation ───
@@ -97,14 +119,14 @@ export const paymentService = {
     }
 
     // Verify the provider is enabled for this store
-    const providerConfig = await repo.findProvider(storeId, provider);
+    const providerConfig = await this.findProviderByStoreId(storeId, provider);
     if (!providerConfig || !providerConfig.isEnabled) {
       throw Object.assign(new Error(`Payment provider ${provider} is not enabled`), {
         code: ErrorCodes.PAYMENT_PROVIDER_NOT_ENABLED,
       });
     }
 
-    const config = providerConfig.config as Record<string, string> | null;
+    const config = providerConfig.config;
     const iKey = idempotencyKey || generateIdempotencyKey();
 
     // For COD: create payment record as completed immediately
@@ -279,7 +301,12 @@ export const paymentService = {
   // ─── Provider lookup for webhooks (internal) ───
 
   async findProviderByStoreId(storeId: string, provider: string) {
-    return repo.findProvider(storeId, provider);
+    const row = await repo.findProvider(storeId, provider);
+    if (!row) return null;
+    return {
+      ...row,
+      config: decryptConfig(row.config),
+    };
   },
 };
 
@@ -292,7 +319,7 @@ async function createRazorpayOrder(
   idempotencyKey: string,
   receipt: string,
 ) {
-  const amountPaise = Math.round(parseFloat(amount) * 100);
+  const amountPaise = toCents(amount);
 
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
@@ -327,7 +354,7 @@ async function createStripePaymentIntent(
   idempotencyKey: string,
   metadataOrderId: string,
 ) {
-  const amountCents = Math.round(parseFloat(amount) * 100);
+  const amountCents = toCents(amount);
   // Stripe expects lowercase 3-letter currency codes
   const cur = currency.toLowerCase();
 
@@ -362,7 +389,7 @@ async function handleRazorpayWebhook(
   payload: Record<string, unknown>,
   _signature: string,
   _rawBody: string,
-  _storeId: string,
+  storeId: string,
 ) {
   // Razorpay webhook payload has: entity, event, contains, etc.
   const event = payload.event as string;
@@ -375,12 +402,23 @@ async function handleRazorpayWebhook(
     const razorpayOrderId = paymentEntity.order_id as string;
     const razorpayPaymentId = paymentEntity.id as string;
 
-    // Find the payment by providerPaymentId (razorpay order id)
+    // Find the payment by providerPaymentId (razorpay order id) and storeId for isolation
     const payment = await db.query.payments.findFirst({
-      where: eq(payments.providerPaymentId, razorpayOrderId),
+      where: and(eq(payments.providerPaymentId, razorpayOrderId), eq(payments.storeId, storeId)),
     });
 
-    if (!payment) return { received: true };
+    if (!payment) {
+      throw Object.assign(new Error('Payment not found for Razorpay order'), {
+        code: ErrorCodes.ORDER_NOT_FOUND,
+      });
+    }
+
+    // CRITICAL: verify store isolation
+    if (payment.storeId !== storeId) {
+      throw Object.assign(new Error('Payment storeId mismatch'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
 
     if (payment.status === 'completed') {
       return { received: true }; // Already processed — idempotent
@@ -412,7 +450,7 @@ async function handleStripeWebhook(
   payload: Record<string, unknown>,
   _signature: string,
   _rawBody: string,
-  _storeId: string,
+  storeId: string,
 ) {
   const type = payload.type as string;
   const dataObject = (payload.data as Record<string, unknown>)?.object as Record<string, unknown> | undefined;
@@ -421,10 +459,21 @@ async function handleStripeWebhook(
     const stripePaymentIntentId = dataObject.id as string;
 
     const payment = await db.query.payments.findFirst({
-      where: eq(payments.providerPaymentId, stripePaymentIntentId),
+      where: and(eq(payments.providerPaymentId, stripePaymentIntentId), eq(payments.storeId, storeId)),
     });
 
-    if (!payment) return { received: true };
+    if (!payment) {
+      throw Object.assign(new Error('Payment not found for Stripe intent'), {
+        code: ErrorCodes.ORDER_NOT_FOUND,
+      });
+    }
+
+    // CRITICAL: verify store isolation
+    if (payment.storeId !== storeId) {
+      throw Object.assign(new Error('Payment storeId mismatch'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
 
     if (payment.status === 'completed') {
       return { received: true }; // Already processed — idempotent
@@ -458,10 +507,14 @@ export function verifyRazorpaySignature(
     .createHmac('sha256', webhookSecret)
     .update(rawBody)
     .digest('hex');
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(signature),
-  );
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected),
+      Buffer.from(signature),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function verifyStripeSignature(

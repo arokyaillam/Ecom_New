@@ -1,11 +1,13 @@
 // Merchant Analytics Routes - Dashboard stats and revenue data
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { analyticsService } from './analytics.service.js';
 import { revenueQuerySchema } from './analytics.schema.js';
 
 export default async function merchantAnalyticsRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/analytics/dashboard
   fastify.get('/dashboard', {
+    preHandler: requirePermission('analytics:read'),
     schema: {
       tags: ['Merchant Analytics'],
       summary: 'Get dashboard stats',
@@ -19,6 +21,7 @@ export default async function merchantAnalyticsRoutes(fastify: FastifyInstance) 
 
   // GET /api/v1/merchant/analytics/revenue
   fastify.get('/revenue', {
+    preHandler: requirePermission('analytics:read'),
     schema: {
       tags: ['Merchant Analytics'],
       summary: 'Get revenue data',

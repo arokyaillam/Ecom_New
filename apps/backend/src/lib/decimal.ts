@@ -1,11 +1,8 @@
-// Decimal arithmetic utility for precise money calculations
-// All operations use integer cents internally to avoid floating-point errors
-
 /**
  * Convert a decimal string to integer cents.
  * "10.50" -> 1050, "10" -> 1000, "0.99" -> 99
  */
-function toCents(value: string): number {
+export function toCents(value: string): number {
   const parts = value.split('.');
   const whole = parts[0] || '0';
   const fractional = (parts[1] || '').padEnd(2, '0').slice(0, 2);
@@ -16,7 +13,7 @@ function toCents(value: string): number {
  * Convert integer cents back to a decimal string with 2 decimal places.
  * 1050 -> "10.50", 1000 -> "10.00", 99 -> "0.99"
  */
-function fromCents(cents: number): string {
+export function fromCents(cents: number): string {
   const isNegative = cents < 0;
   const absCents = Math.abs(cents);
   const whole = Math.floor(absCents / 100);
@@ -47,6 +44,15 @@ export function subtractDecimals(a: string, b: string): string {
  */
 export function multiplyDecimalByInt(decimal: string, quantity: number): string {
   return fromCents(Math.round(toCents(decimal) * quantity));
+}
+
+/**
+ * Divide a decimal string by an integer.
+ * divideDecimalByInt("10.50", 2) -> "5.25"
+ */
+export function divideDecimalByInt(decimal: string, divisor: number): string {
+  if (divisor === 0) throw new Error('Division by zero');
+  return fromCents(Math.round(toCents(decimal) / divisor));
 }
 
 /**

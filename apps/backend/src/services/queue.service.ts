@@ -11,6 +11,9 @@ const parseRedisUrl = (url: string): Record<string, unknown> => {
   if (parsed.username && parsed.username !== 'default') result.username = parsed.username;
   const db = parsed.pathname.slice(1);
   if (db) result.db = parseInt(db);
+  if (url.startsWith('rediss://')) {
+    result.tls = {};
+  }
   return result;
 };
 

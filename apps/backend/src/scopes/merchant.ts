@@ -1,10 +1,22 @@
 // Merchant Scope - Authentication required
 // Store owners and staff - manage products, orders, settings
 
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import { ErrorCodes } from '../errors/codes.js';
+import { generateCsrfToken, setCsrfCookie, validateCsrf } from '../lib/csrf.js';
 
 export default async function merchantScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
+  // CSRF: set cookie on safe methods if missing; validate on mutating methods
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(request.method) && !request.cookies.csrf_token) {
+      setCsrfCookie(reply, generateCsrfToken());
+      return;
+    }
+    if (!validateCsrf(request, reply)) {
+      return;
+    }
+  });
+
   // JWT verification hook - runs on ALL merchant routes EXCEPT login/register/logout
   fastify.addHook('onRequest', async (request, reply) => {
     // Skip auth for login, register, logout, verify-email, forgot-password, reset-password, refresh
@@ -108,4 +120,22 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
   fastify.register(import('../modules/shipping/shipping.route.merchant.js'), { prefix: '/shipping' });
   fastify.register(import('../modules/tax/tax.route.merchant.js'), { prefix: '/tax' });
   fastify.register(import('../modules/payment/payment.route.merchant.js'), { prefix: '/payments' });
+}
+
+/**
+ * Fastify preHandler hook factory to enforce staff permissions.
+ * Use on sensitive merchant routes (product write, order write, payment config, etc.).
+ * OWNER role always passes. Other roles require the specific permission.
+ */
+export function requirePermission(permission: string) {
+  return async function requirePermissionHook(request: FastifyRequest, reply: FastifyReply) {
+    if (request.userRole === 'OWNER') return;
+    const perms: string[] = request.userPermissions || [];
+    if (perms.includes('*') || perms.includes(permission)) return;
+    reply.status(403).send({
+      error: 'Forbidden',
+      code: ErrorCodes.PERMISSION_DENIED,
+      message: `Permission '${permission}' required`,
+    });
+  };
 }

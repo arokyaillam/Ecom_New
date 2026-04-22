@@ -1,5 +1,6 @@
 // Merchant Payment Routes — provider configuration and payment status
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { paymentService } from './payment.service.js';
 import { configureProviderSchema, orderIdParamSchema } from './payment.schema.js';
 
@@ -14,6 +15,7 @@ export default async function merchantPaymentRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/payments/providers
   fastify.post('/providers', {
+    preHandler: requirePermission('payments:config'),
     schema: { tags: ['Merchant Payments'], summary: 'Configure a payment provider', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const parsed = configureProviderSchema.parse(request.body);

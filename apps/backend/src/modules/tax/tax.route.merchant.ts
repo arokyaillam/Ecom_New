@@ -1,5 +1,6 @@
 // Merchant Tax Routes - Tax rate CRUD
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { taxService } from './tax.service.js';
 import { idParamSchema } from '../_shared/schema.js';
 import { createTaxRateSchema, updateTaxRateSchema } from './tax.schema.js';
@@ -15,6 +16,7 @@ export default async function merchantTaxRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/tax
   fastify.post('/', {
+    preHandler: requirePermission('tax:write'),
     schema: { tags: ['Merchant Tax'], summary: 'Create tax rate', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const parsed = createTaxRateSchema.parse(request.body);
@@ -34,6 +36,7 @@ export default async function merchantTaxRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/tax/:id
   fastify.patch('/:id', {
+    preHandler: requirePermission('tax:write'),
     schema: { tags: ['Merchant Tax'], summary: 'Update tax rate', security: [{ cookieAuth: [] }] },
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
@@ -44,6 +47,7 @@ export default async function merchantTaxRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/tax/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('tax:write'),
     schema: { tags: ['Merchant Tax'], summary: 'Delete tax rate', security: [{ cookieAuth: [] }] },
   }, async (request, reply) => {
     const { id } = idParamSchema.parse(request.params);

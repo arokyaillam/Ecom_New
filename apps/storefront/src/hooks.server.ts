@@ -4,18 +4,36 @@ import { safeDecodeJWT, isTokenExpired, getAuthScope } from '@repo/shared-utils/
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:3000';
 
 export const handle: Handle = async ({ event, resolve }) => {
+  // Ensure CSRF cookie exists for all sessions
+  let csrfToken = event.cookies.get('csrf_token');
+  if (!csrfToken) {
+    csrfToken = crypto.randomUUID();
+    event.cookies.set('csrf_token', csrfToken, {
+      path: '/',
+      httpOnly: false,
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+  event.locals.csrfToken = csrfToken;
+
   const accessToken = event.cookies.get('access_token');
 
   if (accessToken) {
+    // SECURITY WARNING: safeDecodeJWT does NOT verify the signature.
+    // The decoded payload is advisory ONLY for UI state (e.g., showing logged-in user).
+    // ALL authorization decisions MUST be made by the backend API.
     const payload = safeDecodeJWT(accessToken);
 
     if (payload && isTokenExpired(payload)) {
       // Try to refresh the token
       try {
+        const csrfToken = event.cookies.get('csrf_token');
         const refreshResponse = await fetch(`${API_BASE}/api/v1/customer/auth/refresh`, {
           method: 'POST',
           headers: {
             Cookie: `refresh_token=${event.cookies.get('refresh_token')}`,
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
           },
         });
 
@@ -49,5 +67,13 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  return resolve(event);
+  const response = await resolve(event);
+
+  // Security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+  return response;
 };

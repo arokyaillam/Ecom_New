@@ -1,5 +1,6 @@
 // Merchant Staff Routes - Staff listing, invitations, role management
 import { FastifyInstance } from 'fastify';
+import { requirePermission } from '../../scopes/merchant.js';
 import { staffService } from './staff.service.js';
 import { ErrorCodes } from '../../errors/codes.js';
 import { idParamSchema } from '../_shared/schema.js';
@@ -22,6 +23,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/merchant/staff/invite
   fastify.post('/invite', {
+    preHandler: requirePermission('staff:write'),
     config: {
       rateLimit: { max: 5, timeWindow: '1 minute' },
     },
@@ -87,6 +89,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/merchant/staff/:id/role
   fastify.patch('/:id/role', {
+    preHandler: requirePermission('staff:write'),
     schema: {
       tags: ['Merchant Staff'],
       summary: 'Update staff role',
@@ -111,6 +114,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/merchant/staff/:id
   fastify.delete('/:id', {
+    preHandler: requirePermission('staff:write'),
     schema: {
       tags: ['Merchant Staff'],
       summary: 'Remove staff member',

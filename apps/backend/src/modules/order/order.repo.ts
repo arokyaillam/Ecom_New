@@ -1,6 +1,6 @@
 // Order repository — Drizzle queries only. No business logic, no ErrorCodes.
 import { db } from '../../db/index.js';
-import { orders, orderItems, products, carts, cartItems, coupons } from '../../db/schema.js';
+import { orders, orderItems, products, carts, cartItems, coupons, couponUsages } from '../../db/schema.js';
 import { eq, and, desc, sql, count } from 'drizzle-orm';
 import type { DbOrTx } from '../_shared/db-types.js';
 
@@ -161,7 +161,13 @@ export const orderRepo = {
     });
   },
 
-  async incrementCouponUsage(couponId: string, tx?: DbOrTx) {
+  async incrementCouponUsage(
+    couponId: string,
+    customerId: string | undefined,
+    orderId: string,
+    storeId: string,
+    tx?: DbOrTx,
+  ) {
     const executor = tx ?? db;
     const rows = await executor
       .update(coupons)
@@ -176,6 +182,18 @@ export const orderRepo = {
         ),
       )
       .returning();
+
+    // Track per-customer usage
+    if (rows.length > 0 && customerId) {
+      await executor.insert(couponUsages).values({
+        couponId,
+        customerId,
+        orderId,
+        storeId,
+        usedAt: new Date(),
+      });
+    }
+
     return rows;
   },
 

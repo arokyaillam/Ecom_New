@@ -190,6 +190,7 @@ describe('orderService.findById', () => {
 describe('orderService.create', () => {
   const orderData = {
     storeId: 'store-1',
+    customerId: 'cust-1',
     email: 'customer@store.com',
     currency: 'USD',
     subtotal: '30.00',
@@ -317,8 +318,7 @@ describe('orderService.create', () => {
     mockOrderRepo.insertOrder.mockResolvedValueOnce(createdOrder);
     mockOrderRepo.insertOrderItems.mockResolvedValueOnce([]);
     mockOrderRepo.decrementInventory.mockResolvedValue([{ id: 'prod-1' }]);
-    mockOrderRepo.findCouponById.mockResolvedValueOnce(mockCoupon);
-    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce({ ...mockCoupon, usageCount: 51 });
+    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce([{ ...mockCoupon, usageCount: 51 }]);
     mockOrderRepo.findById.mockResolvedValueOnce(mockOrder);
 
     await orderService.create({
@@ -327,24 +327,13 @@ describe('orderService.create', () => {
       couponId: 'coupon-1',
     });
 
-    expect(mockOrderRepo.findCouponById).toHaveBeenCalledWith('coupon-1', mockTx);
-    expect(mockOrderRepo.incrementCouponUsage).toHaveBeenCalledWith('coupon-1', mockTx);
-  });
-
-  it('throws INVALID_COUPON when coupon is not found', async () => {
-    const createdOrder = { id: 'order-1', orderNumber: 'ORD-XYZ', storeId: 'store-1' };
-    mockOrderRepo.insertOrder.mockResolvedValueOnce(createdOrder);
-    mockOrderRepo.insertOrderItems.mockResolvedValueOnce([]);
-    mockOrderRepo.decrementInventory.mockResolvedValue([{ id: 'prod-1' }]);
-    mockOrderRepo.findCouponById.mockResolvedValueOnce(undefined);
-
-    await expect(
-      orderService.create({
-        ...orderData,
-        items: [orderData.items[0]],
-        couponId: 'coupon-nonexistent',
-      }),
-    ).rejects.toMatchObject({ code: ErrorCodes.INVALID_COUPON });
+    expect(mockOrderRepo.incrementCouponUsage).toHaveBeenCalledWith(
+      'coupon-1',
+      orderData.customerId,
+      createdOrder.id,
+      orderData.storeId,
+      mockTx,
+    );
   });
 
   it('throws COUPON_USAGE_EXCEEDED when coupon usage limit is reached', async () => {
@@ -352,8 +341,7 @@ describe('orderService.create', () => {
     mockOrderRepo.insertOrder.mockResolvedValueOnce(createdOrder);
     mockOrderRepo.insertOrderItems.mockResolvedValueOnce([]);
     mockOrderRepo.decrementInventory.mockResolvedValue([{ id: 'prod-1' }]);
-    const usedUpCoupon = { ...mockCoupon, usageLimit: 100, usageCount: 100 };
-    mockOrderRepo.findCouponById.mockResolvedValueOnce(usedUpCoupon);
+    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce([]);
 
     await expect(
       orderService.create({
@@ -370,8 +358,7 @@ describe('orderService.create', () => {
     mockOrderRepo.insertOrderItems.mockResolvedValueOnce([]);
     mockOrderRepo.decrementInventory.mockResolvedValue([{ id: 'prod-1' }]);
     const unlimitedCoupon = { ...mockCoupon, usageLimit: null, usageCount: 500 };
-    mockOrderRepo.findCouponById.mockResolvedValueOnce(unlimitedCoupon);
-    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce({ ...unlimitedCoupon });
+    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce([{ ...unlimitedCoupon }]);
     mockOrderRepo.findById.mockResolvedValueOnce(mockOrder);
 
     const result = await orderService.create({
@@ -381,7 +368,13 @@ describe('orderService.create', () => {
     });
 
     expect(result).toEqual(mockOrder);
-    expect(mockOrderRepo.incrementCouponUsage).toHaveBeenCalledWith('coupon-1', mockTx);
+    expect(mockOrderRepo.incrementCouponUsage).toHaveBeenCalledWith(
+      'coupon-1',
+      orderData.customerId,
+      createdOrder.id,
+      orderData.storeId,
+      mockTx,
+    );
   });
 
   it('allows coupon when usageLimit is not yet reached', async () => {
@@ -390,8 +383,7 @@ describe('orderService.create', () => {
     mockOrderRepo.insertOrderItems.mockResolvedValueOnce([]);
     mockOrderRepo.decrementInventory.mockResolvedValue([{ id: 'prod-1' }]);
     const validCoupon = { ...mockCoupon, usageLimit: 100, usageCount: 50 };
-    mockOrderRepo.findCouponById.mockResolvedValueOnce(validCoupon);
-    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce({ ...validCoupon });
+    mockOrderRepo.incrementCouponUsage.mockResolvedValueOnce([{ ...validCoupon }]);
     mockOrderRepo.findById.mockResolvedValueOnce(mockOrder);
 
     const result = await orderService.create({

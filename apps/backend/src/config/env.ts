@@ -33,6 +33,9 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
+  // Payment provider config encryption (AES-256-GCM, 64 hex chars = 32 bytes)
+  PAYMENT_CONFIG_ENCRYPTION_KEY: z.string().length(64).optional(),
+
   // Analytics
   MIXPANEL_TOKEN: z.string().optional(),
 
