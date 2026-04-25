@@ -308,6 +308,101 @@ export const paymentService = {
       config: decryptConfig(row.config),
     };
   },
+
+  // ─── Payment listing and detail ───
+
+  async listPayments(storeId: string, query: { page: number; limit: number; status?: string; orderId?: string; search?: string }) {
+    return repo.findPaymentsByStoreId(storeId, query);
+  },
+
+  async getPaymentDetail(id: string, storeId: string) {
+    const payment = await repo.findPaymentById(id, storeId);
+    if (!payment) {
+      throw Object.assign(new Error('Payment not found'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
+    const refunds = await repo.findRefundsByPaymentId(id);
+    return { payment, refunds };
+  },
+
+  // ─── Refunds ───
+
+  async refundPayment(
+    paymentId: string,
+    storeId: string,
+    userId: string,
+    { amount, reason }: { amount: string; reason: string },
+  ) {
+    const payment = await repo.findPaymentById(paymentId, storeId);
+    if (!payment) {
+      throw Object.assign(new Error('Payment not found'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
+    if (payment.status !== 'completed') {
+      throw Object.assign(new Error('Payment must be completed to issue a refund'), {
+        code: ErrorCodes.PAYMENT_FAILED,
+      });
+    }
+    if (toCents(amount) > toCents(payment.amount)) {
+      throw Object.assign(new Error('Refund amount cannot exceed payment amount'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
+
+    const refund = await db.transaction(async (tx) => {
+      const created = await repo.createRefund({
+        paymentId,
+        storeId,
+        orderId: payment.orderId,
+        amount,
+        reason,
+        status: 'completed',
+        processedBy: userId,
+      }, tx);
+
+      // Update payment status to refunded only if full refund
+      const isFullRefund = toCents(amount) === toCents(payment.amount);
+      if (isFullRefund) {
+        await repo.updatePaymentStatus(paymentId, storeId, { status: 'refunded' }, tx);
+      }
+
+      return created;
+    });
+
+    // TODO: integrate with external provider (Stripe/Razorpay) refund APIs
+    return refund;
+  },
+
+  // ─── Disputes ───
+
+  async listDisputes(storeId: string, query: { page: number; limit: number; status?: string }) {
+    return repo.findDisputesByStoreId(storeId, query);
+  },
+
+  async createDispute(
+    paymentId: string,
+    storeId: string,
+    { reason, status }: { reason: string; status?: string },
+  ) {
+    const payment = await repo.findPaymentById(paymentId, storeId);
+    if (!payment) {
+      throw Object.assign(new Error('Payment not found'), {
+        code: ErrorCodes.VALIDATION_ERROR,
+      });
+    }
+
+    const dispute = await repo.createDispute({
+      paymentId,
+      storeId,
+      orderId: payment.orderId,
+      reason,
+      status: status ?? 'open',
+    });
+
+    return dispute;
+  },
 };
 
 // ─── Razorpay API calls ───

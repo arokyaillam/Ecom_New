@@ -466,6 +466,8 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   analytics: many(storeAnalytics),
   paymentProviders: many(paymentProviders),
   payments: many(payments),
+  paymentRefunds: many(paymentRefunds),
+  paymentDisputes: many(paymentDisputes),
   inventoryHistory: many(inventoryHistory),
 }));
 
@@ -612,6 +614,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [coupons.id],
   }),
   payments: many(payments),
+  paymentRefunds: many(paymentRefunds),
+  paymentDisputes: many(paymentDisputes),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -924,6 +928,33 @@ export const payments = pgTable("payments", {
   index("payments_store_id_order_id_idx").on(table.storeId, table.orderId),
 ]);
 
+export const paymentRefunds = pgTable("payment_refunds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paymentId: uuid("payment_id").references(() => payments.id).notNull(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  amount: decimal("amount").notNull(),
+  reason: text("reason"),
+  status: text("status").default("pending").notNull(), // pending | completed | failed
+  processedBy: uuid("processed_by").references(() => users.id),
+  providerRefundId: text("provider_refund_id"), // external refund ID
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const paymentDisputes = pgTable("payment_disputes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paymentId: uuid("payment_id").references(() => payments.id).notNull(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").default("open").notNull(), // open | resolved | rejected
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── Inventory ───
 
 export const inventoryHistory = pgTable("inventory_history", {
@@ -951,13 +982,49 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one }) =
   }),
 }));
 
-export const paymentsRelations = relations(payments, ({ one }) => ({
+export const paymentsRelations = relations(payments, ({ one, many }) => ({
   store: one(stores, {
     fields: [payments.storeId],
     references: [stores.id],
   }),
   order: one(orders, {
     fields: [payments.orderId],
+    references: [orders.id],
+  }),
+  refunds: many(paymentRefunds),
+  disputes: many(paymentDisputes),
+}));
+
+export const paymentRefundsRelations = relations(paymentRefunds, ({ one }) => ({
+  payment: one(payments, {
+    fields: [paymentRefunds.paymentId],
+    references: [payments.id],
+  }),
+  store: one(stores, {
+    fields: [paymentRefunds.storeId],
+    references: [stores.id],
+  }),
+  order: one(orders, {
+    fields: [paymentRefunds.orderId],
+    references: [orders.id],
+  }),
+  processor: one(users, {
+    fields: [paymentRefunds.processedBy],
+    references: [users.id],
+  }),
+}));
+
+export const paymentDisputesRelations = relations(paymentDisputes, ({ one }) => ({
+  payment: one(payments, {
+    fields: [paymentDisputes.paymentId],
+    references: [payments.id],
+  }),
+  store: one(stores, {
+    fields: [paymentDisputes.storeId],
+    references: [stores.id],
+  }),
+  order: one(orders, {
+    fields: [paymentDisputes.orderId],
     references: [orders.id],
   }),
 }));
