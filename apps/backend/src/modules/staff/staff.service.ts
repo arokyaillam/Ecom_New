@@ -31,9 +31,27 @@ export const DEFAULT_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
+export const VALID_PERMISSIONS = [
+  'products:read', 'products:write',
+  'orders:read', 'orders:write', 'orders:refund',
+  'customers:read', 'customers:write',
+  'coupons:read', 'coupons:write',
+  'analytics:read',
+  'reviews:read', 'reviews:write',
+  'categories:read', 'categories:write',
+  'modifiers:read', 'modifiers:write',
+  'store:read', 'store:write',
+  'payments:config', 'payments:refund', 'payments:manage',
+  'shipping:write',
+  'tax:write',
+  'upload:write',
+  'staff:write',
+  'inventory:write',
+] as const;
+
 export const staffService = {
   // Invite a staff member
-  async inviteStaff(storeId: string, email: string, role: string, invitedBy: string) {
+  async inviteStaff(storeId: string, email: string, role: string, invitedBy: string, permissions?: string[]) {
     if (!['MANAGER', 'CASHIER'].includes(role)) {
       throw Object.assign(new Error('Invalid staff role'), { code: ErrorCodes.VALIDATION_ERROR });
     }
@@ -57,6 +75,7 @@ export const staffService = {
       storeId,
       email,
       role,
+      permissions: permissions ?? null,
       invitedBy,
       token,
       expiresAt,
@@ -75,12 +94,13 @@ export const staffService = {
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Create user
+    // Create user with permissions from invitation if present
     const user = await staffRepo.insertUser({
       email: invitation.email,
       password: hashedPassword,
       role: invitation.role,
       storeId: invitation.storeId,
+      permissions: invitation.permissions ?? null,
     });
 
     // Mark invitation as accepted
@@ -89,7 +109,7 @@ export const staffService = {
       userId: user.id,
     });
 
-    return { user: { id: user.id, email: user.email, role: user.role, storeId: user.storeId }, invitation };
+    return { user: { id: user.id, email: user.email, role: user.role, storeId: user.storeId, permissions: user.permissions }, invitation };
   },
 
   // Reject staff invitation
@@ -134,6 +154,28 @@ export const staffService = {
     const updated = await staffRepo.updateUserRole(userId, storeId, role);
 
     return { id: updated.id, email: updated.email, role: updated.role };
+  },
+
+  // Update staff permissions
+  async updateUserPermissions(userId: string, storeId: string, permissions: string[]) {
+    const user = await staffRepo.findUserById(userId, storeId);
+
+    if (!user) {
+      throw Object.assign(new Error('Staff member not found'), { code: ErrorCodes.STAFF_NOT_FOUND });
+    }
+
+    if (user.role === 'OWNER') {
+      throw Object.assign(new Error('Cannot change owner permissions'), { code: ErrorCodes.CANNOT_REMOVE_OWNER });
+    }
+
+    const updated = await staffRepo.updateUserPermissions(userId, storeId, permissions);
+
+    return { id: updated.id, email: updated.email, role: updated.role, permissions: updated.permissions };
+  },
+
+  // Find user by ID
+  async findUserById(userId: string, storeId: string) {
+    return staffRepo.findUserById(userId, storeId);
   },
 
   // Remove staff member

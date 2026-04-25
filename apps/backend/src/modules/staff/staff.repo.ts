@@ -74,7 +74,7 @@ export const staffRepo = {
     const executor = tx ?? db;
     return executor.query.users.findMany({
       where: and(eq(users.storeId, storeId), ne(users.role, 'OWNER')),
-      columns: { id: true, email: true, role: true, storeId: true, createdAt: true },
+      columns: { id: true, email: true, role: true, storeId: true, permissions: true, createdAt: true },
     });
   },
 
@@ -100,6 +100,15 @@ export const staffRepo = {
     const executor = tx ?? db;
     const [updated] = await executor.update(users)
       .set({ role, updatedAt: new Date() })
+      .where(and(eq(users.id, userId), eq(users.storeId, storeId)))
+      .returning();
+    return updated;
+  },
+
+  async updateUserPermissions(userId: string, storeId: string, permissions: string[] | null, tx?: DbExecutor) {
+    const executor = tx ?? db;
+    const [updated] = await executor.update(users)
+      .set({ permissions: permissions ?? null, updatedAt: new Date() })
       .where(and(eq(users.id, userId), eq(users.storeId, storeId)))
       .returning();
     return updated;

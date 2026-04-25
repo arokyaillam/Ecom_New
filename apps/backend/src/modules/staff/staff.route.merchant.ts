@@ -4,7 +4,7 @@ import { requirePermission } from '../../scopes/merchant.js';
 import { staffService } from './staff.service.js';
 import { ErrorCodes } from '../../errors/codes.js';
 import { idParamSchema } from '../_shared/schema.js';
-import { inviteSchema, updateRoleSchema, tokenParamSchema, acceptInviteSchema } from './staff.schema.js';
+import { inviteSchema, updateRoleSchema, updatePermissionsSchema, tokenParamSchema, acceptInviteSchema, VALID_PERMISSIONS } from './staff.schema.js';
 
 export default async function merchantStaffRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/staff
@@ -61,6 +61,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
       parsed.email,
       parsed.role,
       request.userId,
+      parsed.permissions,
     );
 
     // Queue invitation email
@@ -109,6 +110,63 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
     }
 
     const result = await staffService.updateStaffRole(id, request.storeId, parsed.role);
+    return { staff: result };
+  });
+
+  // PATCH /api/v1/merchant/staff/:id/permissions
+  fastify.patch('/:id/permissions', {
+    preHandler: requirePermission('staff:write'),
+    schema: {
+      tags: ['Merchant Staff'],
+      summary: 'Update staff permissions',
+      description: 'Set custom permissions for a staff member. Only OWNER can update permissions.',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request, reply) => {
+    const { id } = idParamSchema.parse(request.params);
+    const parsed = updatePermissionsSchema.parse(request.body);
+
+    if (request.userRole !== 'OWNER') {
+      reply.status(403).send({
+        error: 'Forbidden',
+        code: ErrorCodes.PERMISSION_DENIED,
+        message: 'Only owners can update staff permissions',
+      });
+      return;
+    }
+
+    const user = await staffService.findUserById(id, request.storeId);
+
+    if (!user) {
+      reply.status(404).send({
+        error: 'Not Found',
+        code: ErrorCodes.STAFF_NOT_FOUND,
+        message: 'Staff member not found',
+      });
+      return;
+    }
+
+    if (user.role === 'OWNER') {
+      reply.status(403).send({
+        error: 'Forbidden',
+        code: ErrorCodes.CANNOT_REMOVE_OWNER,
+        message: 'Cannot update owner permissions',
+      });
+      return;
+    }
+
+    // Validate all permissions are known
+    const invalid = parsed.permissions.filter((p) => !VALID_PERMISSIONS.includes(p as typeof VALID_PERMISSIONS[number]));
+    if (invalid.length > 0) {
+      reply.status(400).send({
+        error: 'Bad Request',
+        code: ErrorCodes.VALIDATION_ERROR,
+        message: `Invalid permissions: ${invalid.join(', ')}`,
+      });
+      return;
+    }
+
+    const result = await staffService.updateUserPermissions(id, request.storeId, parsed.permissions);
     return { staff: result };
   });
 

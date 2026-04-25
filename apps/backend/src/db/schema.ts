@@ -78,6 +78,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: text("role").default("OWNER").notNull(),
   storeId: uuid("store_id").references(() => stores.id).notNull(),
+  permissions: json("permissions").$type<string[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -774,6 +775,7 @@ export const staffInvitations = pgTable("staff_invitations", {
   storeId: uuid("store_id").references(() => stores.id, { onDelete: 'cascade' }).notNull(),
   email: text("email").notNull(),
   role: text("role").notNull(), // 'MANAGER' | 'CASHIER'
+  permissions: json("permissions").$type<string[]>(),
   invitedBy: uuid("invited_by").references(() => users.id, { onDelete: 'set null' }),
   token: text("token").notNull().unique(),
   status: text("status").default("pending"), // 'pending' | 'accepted' | 'rejected' | 'expired'

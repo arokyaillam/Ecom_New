@@ -81,16 +81,21 @@ export default async function merchantScope(fastify: FastifyInstance, _opts: Fas
       request.userId = decoded.userId;
       request.userRole = decoded.role;
 
-      // Load permissions: OWNER gets all; others get DB override or role defaults
+      // Load permissions: OWNER gets all; others get per-user override, DB role override, or role defaults
       if (decoded.role === 'OWNER') {
         request.userPermissions = ['*'];
       } else {
-        const override = await fastify.staffService.findRoleOverride(decoded.storeId, decoded.role);
-        if (override) {
-          request.userPermissions = override.permissions;
+        const user = await fastify.staffService.findUserById(decoded.userId, decoded.storeId);
+        if (user?.permissions && Array.isArray(user.permissions) && user.permissions.length > 0) {
+          request.userPermissions = user.permissions;
         } else {
-          const defaults = fastify.staffService.getDefaultPermissions(decoded.role);
-          request.userPermissions = defaults;
+          const override = await fastify.staffService.findRoleOverride(decoded.storeId, decoded.role);
+          if (override) {
+            request.userPermissions = override.permissions;
+          } else {
+            const defaults = fastify.staffService.getDefaultPermissions(decoded.role);
+            request.userPermissions = defaults;
+          }
         }
       }
     } catch (err) {
