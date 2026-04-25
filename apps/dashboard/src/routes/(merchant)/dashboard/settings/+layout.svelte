@@ -3,6 +3,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Monitor from '@lucide/svelte/icons/monitor';
+	import Globe from '@lucide/svelte/icons/globe';
 	import UserCog from '@lucide/svelte/icons/user-cog';
 	import Truck from '@lucide/svelte/icons/truck';
 	import Receipt from '@lucide/svelte/icons/receipt';
@@ -14,6 +15,7 @@
 		{ label: 'General', href: '/dashboard/settings/general', icon: Settings, permission: 'store:read' },
 		{ label: 'Branding', href: '/dashboard/settings/branding', icon: Palette, permission: 'store:write' },
 		{ label: 'Storefront', href: '/dashboard/settings/storefront', icon: Monitor, permission: 'store:write' },
+		{ label: 'Domain', href: '/dashboard/settings/domain', icon: Globe, permission: 'store:write' },
 		{ label: 'Staff', href: '/dashboard/settings/staff', icon: UserCog, permission: 'staff:write' },
 		{ label: 'Shipping', href: '/dashboard/settings/shipping', icon: Truck, permission: 'shipping:write' },
 		{ label: 'Tax', href: '/dashboard/settings/tax', icon: Receipt, permission: 'tax:write' },

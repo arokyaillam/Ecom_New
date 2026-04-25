@@ -68,6 +68,9 @@ export const stores = pgTable("stores", {
   heroCtaText: text("hero_cta_text").default("Explore Collection"),
   heroCtaLink: text("hero_cta_link").default("#products"),
   heroEnabled: boolean("hero_enabled").default(true),
+  customDomain: text("custom_domain"),
+  customDomainVerified: boolean("custom_domain_verified").default(false),
+  customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

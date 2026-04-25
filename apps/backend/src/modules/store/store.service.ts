@@ -34,4 +34,31 @@ export const storeService = {
   async findByOwnerId(ownerEmail: string) {
     return storeRepo.findByOwnerId(ownerEmail);
   },
+
+  async getDomainConfig(storeId: string) {
+    const store = await this.findByIdOrFail(storeId);
+    return {
+      subdomain: store.domain,
+      customDomain: store.customDomain,
+      customDomainVerified: store.customDomainVerified,
+      customDomainVerifiedAt: store.customDomainVerifiedAt,
+    };
+  },
+
+  async updateCustomDomain(storeId: string, customDomain: string) {
+    const [store] = await storeRepo.update(storeId, {
+      customDomain,
+      customDomainVerified: false,
+      customDomainVerifiedAt: null,
+    });
+    return store;
+  },
+
+  async verifyCustomDomain(storeId: string) {
+    const [store] = await storeRepo.update(storeId, {
+      customDomainVerified: true,
+      customDomainVerifiedAt: new Date(),
+    });
+    return store;
+  },
 };

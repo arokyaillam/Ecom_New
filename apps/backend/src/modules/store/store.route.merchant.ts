@@ -2,7 +2,7 @@
 import { FastifyInstance } from 'fastify';
 import { requirePermission } from '../../scopes/merchant.js';
 import { storeService } from './store.service.js';
-import { merchantUpdateStoreSchema as updateStoreSchema } from './store.schema.js';
+import { merchantUpdateStoreSchema as updateStoreSchema, updateDomainSchema } from './store.schema.js';
 
 export default async function merchantStoreRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/store
@@ -35,5 +35,57 @@ export default async function merchantStoreRoutes(fastify: FastifyInstance) {
 
     const { ownerEmail: _ownerEmail, ownerName: _ownerName, ownerPhone: _ownerPhone, ...publicStore } = store;
     return { store: publicStore };
+  });
+
+  // GET /api/v1/merchant/store/domain
+  fastify.get('/domain', {
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Get domain configuration',
+      description: 'Retrieve subdomain and custom domain settings for the store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
+    const config = await storeService.getDomainConfig(request.storeId);
+    return config;
+  });
+
+  // PATCH /api/v1/merchant/store/domain
+  fastify.patch('/domain', {
+    preHandler: requirePermission('store:write'),
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Update custom domain',
+      description: 'Set or change the custom domain for the store',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
+    const parsed = updateDomainSchema.parse(request.body);
+    const store = await storeService.updateCustomDomain(request.storeId, parsed.customDomain);
+    return {
+      subdomain: store.domain,
+      customDomain: store.customDomain,
+      customDomainVerified: store.customDomainVerified,
+      customDomainVerifiedAt: store.customDomainVerifiedAt,
+    };
+  });
+
+  // POST /api/v1/merchant/store/domain/verify
+  fastify.post('/domain/verify', {
+    preHandler: requirePermission('store:write'),
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Verify custom domain',
+      description: 'Trigger verification of the custom domain DNS configuration',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
+    const store = await storeService.verifyCustomDomain(request.storeId);
+    return {
+      subdomain: store.domain,
+      customDomain: store.customDomain,
+      customDomainVerified: store.customDomainVerified,
+      customDomainVerifiedAt: store.customDomainVerifiedAt,
+    };
   });
 }

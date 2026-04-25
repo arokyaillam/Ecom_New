@@ -51,3 +51,7 @@ export const merchantUpdateStoreSchema = z.strictObject({
   heroCtaLink: z.string().max(500).optional(),
   heroEnabled: z.boolean().optional(),
 });
+
+export const updateDomainSchema = z.strictObject({
+  customDomain: z.string().regex(/^[a-z0-9][-a-z0-9]*\.[a-z]{2,}$/i, 'Must be a valid domain (e.g. shop.example.com)'),
+});
