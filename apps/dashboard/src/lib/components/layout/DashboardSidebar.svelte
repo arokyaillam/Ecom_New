@@ -13,6 +13,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
+	import Bell from '@lucide/svelte/icons/bell';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -44,6 +45,7 @@ import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 
 	const navItems: NavItem[] = [
 		{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+		{ label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
 		{ label: 'Products', href: '/dashboard/products', icon: PackageIcon, permission: 'products:read' },
 		{ label: 'Inventory', href: '/dashboard/inventory', icon: Boxes, permission: 'inventory:write' },
 		{ label: 'Categories', href: '/dashboard/categories', icon: Grid3x3, permission: 'products:read' },

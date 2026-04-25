@@ -6,6 +6,7 @@ import { ErrorCodes } from '../../errors/codes.js';
 import { orderRepo } from './order.repo.js';
 import { paymentService } from '../payment/payment.service.js';
 import { findPaymentByOrderId } from '../payment/payment.repo.js';
+import { notificationService } from '../notification/notification.service.js';
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -194,6 +195,19 @@ export const orderService = {
 
       return order;
     });
+
+    // Create notification for new order
+    try {
+      await notificationService.createNotification(data.storeId, {
+        type: 'order',
+        title: 'New order received',
+        message: `Order #${orderNumber} for $${data.total}`,
+        linkUrl: `/dashboard/orders/${result.id}`,
+        metadata: { orderId: result.id, orderNumber, total: data.total },
+      });
+    } catch {
+      // Non-blocking: don't fail order creation if notification fails
+    }
 
     return this.findById(result.id, data.storeId);
   },

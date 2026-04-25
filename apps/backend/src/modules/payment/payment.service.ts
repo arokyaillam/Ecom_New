@@ -8,6 +8,7 @@ import { orderRepo } from '../order/order.repo.js';
 import * as repo from './payment.repo.js';
 import { encryptConfig, decryptConfig } from '../../lib/encryption.js';
 import { toCents } from '../../lib/decimal.js';
+import { notificationService } from '../notification/notification.service.js';
 
 /** Mask a secret string, showing only the last 4 characters. */
 function maskSecret(value: string | undefined): string {
@@ -536,6 +537,37 @@ async function handleRazorpayWebhook(
     });
   }
 
+  if (event === 'payment.failed' && paymentEntity) {
+    const razorpayOrderId = paymentEntity.order_id as string;
+    const razorpayPaymentId = paymentEntity.id as string;
+
+    const payment = await db.query.payments.findFirst({
+      where: and(eq(payments.providerPaymentId, razorpayOrderId), eq(payments.storeId, storeId)),
+    });
+
+    if (payment && payment.storeId === storeId && payment.status !== 'failed') {
+      await db.transaction(async (tx) => {
+        await repo.updatePaymentStatus(payment.id, payment.storeId, { status: 'failed', providerPaymentId: razorpayPaymentId }, tx);
+        await orderRepo.updateOrder(payment.orderId, payment.storeId, { paymentStatus: 'failed', updatedAt: new Date() }, tx);
+      });
+
+      const order = await orderRepo.findByIdSimple(payment.orderId, storeId);
+      if (order) {
+        try {
+          await notificationService.createNotification(storeId, {
+            type: 'payment',
+            title: 'Payment failed',
+            message: `Payment for order #${order.orderNumber} failed`,
+            linkUrl: `/dashboard/payments`,
+            metadata: { orderId: order.id, amount: payment.amount },
+          });
+        } catch {
+          // Non-blocking
+        }
+      }
+    }
+  }
+
   return { received: true };
 }
 
@@ -586,6 +618,36 @@ async function handleStripeWebhook(
         updatedAt: new Date(),
       }, tx);
     });
+  }
+
+  if (type === 'payment_intent.payment_failed' && dataObject) {
+    const stripePaymentIntentId = dataObject.id as string;
+
+    const payment = await db.query.payments.findFirst({
+      where: and(eq(payments.providerPaymentId, stripePaymentIntentId), eq(payments.storeId, storeId)),
+    });
+
+    if (payment && payment.storeId === storeId && payment.status !== 'failed') {
+      await db.transaction(async (tx) => {
+        await repo.updatePaymentStatus(payment.id, payment.storeId, { status: 'failed' }, tx);
+        await orderRepo.updateOrder(payment.orderId, payment.storeId, { paymentStatus: 'failed', updatedAt: new Date() }, tx);
+      });
+
+      const order = await orderRepo.findByIdSimple(payment.orderId, storeId);
+      if (order) {
+        try {
+          await notificationService.createNotification(storeId, {
+            type: 'payment',
+            title: 'Payment failed',
+            message: `Payment for order #${order.orderNumber} failed`,
+            linkUrl: `/dashboard/payments`,
+            metadata: { orderId: order.id, amount: payment.amount },
+          });
+        } catch {
+          // Non-blocking
+        }
+      }
+    }
   }
 
   return { received: true };

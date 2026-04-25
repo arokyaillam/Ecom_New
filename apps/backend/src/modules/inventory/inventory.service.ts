@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import { products, inventoryHistory, categories, users } from '../../db/schema.js';
 import { eq, and, desc, sql, ilike, or, lte, gt } from 'drizzle-orm';
 import { ErrorCodes } from '../../errors/codes.js';
+import { notificationService } from '../notification/notification.service.js';
 
 export const inventoryService = {
   async findByStoreId(
@@ -96,6 +97,7 @@ export const inventoryService = {
       const [product] = await tx
         .select({
           id: products.id,
+          titleEn: products.titleEn,
           currentQuantity: products.currentQuantity,
           lowStockThreshold: products.lowStockThreshold,
         })
@@ -141,6 +143,21 @@ export const inventoryService = {
 
       return updated;
     });
+
+    // Low stock notification (outside transaction)
+    if (result && (result.currentQuantity ?? 0) <= (result.lowStockThreshold ?? 10)) {
+      try {
+        await notificationService.createNotification(storeId, {
+          type: 'inventory',
+          title: 'Low stock alert',
+          message: `${result.titleEn} is now at ${result.currentQuantity} units`,
+          linkUrl: `/dashboard/inventory`,
+          metadata: { productId, quantity: result.currentQuantity },
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
 
     return result;
   },

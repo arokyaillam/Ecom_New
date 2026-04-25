@@ -17,6 +17,7 @@ import { storeService } from './modules/store/store.service.js';
 import { pricingService } from './modules/pricing/pricing.service.js';
 import { staffService } from './modules/staff/staff.service.js';
 import { paymentService } from './modules/payment/payment.service.js';
+import { notificationService } from './modules/notification/notification.service.js';
 import { createEmailProcessor } from './services/emailProcessor.service.js';
 import { ErrorCodes } from './errors/codes.js';
 import { sql } from 'drizzle-orm';
@@ -98,6 +99,7 @@ fastify.decorate('storeService', storeService);
 fastify.decorate('pricingService', pricingService);
 fastify.decorate('staffService', staffService);
 fastify.decorate('paymentService', paymentService);
+fastify.decorate('notificationService', notificationService);
 
 // Start email worker to process queued emails
 const emailProcessor = createEmailProcessor(emailService);

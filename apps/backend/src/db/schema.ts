@@ -474,6 +474,7 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   paymentDisputes: many(paymentDisputes),
   inventoryHistory: many(inventoryHistory),
   banners: many(banners),
+  notifications: many(notifications),
 }));
 
 export const categoriesRelations = relations(categories, ({ many, one }) => ({
@@ -1000,6 +1001,23 @@ export const banners = pgTable("banners", {
   index("banners_store_id_sort_order_idx").on(table.storeId, table.sortOrder),
 ]);
 
+// ─── Notifications ───
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  type: text("type").notNull(), // 'order', 'inventory', 'payment', 'system'
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  linkUrl: text("link_url"),
+  isRead: boolean("is_read").default(false),
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("notifications_store_id_is_read_idx").on(table.storeId, table.isRead),
+  index("notifications_store_id_created_at_idx").on(table.storeId, table.createdAt),
+]);
+
 // ─── Phase 3 Relations ───
 
 export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
@@ -1074,6 +1092,13 @@ export const inventoryHistoryRelations = relations(inventoryHistory, ({ one }) =
 export const bannersRelations = relations(banners, ({ one }) => ({
   store: one(stores, {
     fields: [banners.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  store: one(stores, {
+    fields: [notifications.storeId],
     references: [stores.id],
   }),
 }));
