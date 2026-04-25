@@ -10,6 +10,7 @@
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import Settings from '@lucide/svelte/icons/settings';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import X from '@lucide/svelte/icons/x';
@@ -41,6 +42,7 @@
 		{ label: 'Inventory', href: '/dashboard/inventory', icon: Boxes },
 		{ label: 'Categories', href: '/dashboard/categories', icon: Grid3x3 },
 		{ label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
+		{ label: 'Payments', href: '/dashboard/payments', icon: CreditCard },
 		{ label: 'Customers', href: '/dashboard/customers', icon: Users },
 		{ label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
 		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star },
