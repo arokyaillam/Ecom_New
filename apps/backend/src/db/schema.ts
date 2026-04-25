@@ -479,6 +479,7 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   inventoryHistory: many(inventoryHistory),
   banners: many(banners),
   notifications: many(notifications),
+  supportTickets: many(supportTickets),
 }));
 
 export const categoriesRelations = relations(categories, ({ many, one }) => ({
@@ -755,6 +756,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [stores.id],
   }),
   inventoryHistory: many(inventoryHistory),
+  supportTickets: many(supportTickets),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({ many }) => ({
@@ -1045,6 +1047,25 @@ export const auditLogs = pgTable("audit_logs", {
   index("audit_logs_entity_id_idx").on(table.entityId),
 ]);
 
+// ─── Support Tickets ───
+
+export const supportTickets = pgTable("support_tickets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // 'billing', 'technical', 'general', 'feature_request'
+  priority: text("priority").default("medium").notNull(), // 'low', 'medium', 'high', 'urgent'
+  status: text("status").default("open").notNull(), // 'open', 'in_progress', 'resolved', 'closed'
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("support_tickets_store_id_status_idx").on(table.storeId, table.status),
+  index("support_tickets_store_id_created_at_idx").on(table.storeId, table.createdAt),
+]);
+
 // ─── Phase 3 Relations ───
 
 export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
@@ -1137,6 +1158,17 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
   user: one(users, {
     fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
+  store: one(stores, {
+    fields: [supportTickets.storeId],
+    references: [stores.id],
+  }),
+  user: one(users, {
+    fields: [supportTickets.userId],
     references: [users.id],
   }),
 }));

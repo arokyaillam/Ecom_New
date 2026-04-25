@@ -101,6 +101,9 @@ export const ErrorCodes = {
 
   // Marketing
   BANNER_NOT_FOUND: 'BANNER_NOT_FOUND',
+
+  // Support
+  TICKET_NOT_FOUND: 'TICKET_NOT_FOUND',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

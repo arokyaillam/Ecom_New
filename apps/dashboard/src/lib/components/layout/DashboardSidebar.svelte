@@ -14,6 +14,7 @@
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 import ClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 	import Bell from '@lucide/svelte/icons/bell';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import Plug from '@lucide/svelte/icons/plug';
@@ -67,6 +68,7 @@ import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 			icon: ClipboardList,
 			permission: 'store:read',
 		},
+		{ label: 'Support', href: '/dashboard/support', icon: LifeBuoy },
 		{
 			label: 'Settings',
 			href: '/dashboard/settings',
