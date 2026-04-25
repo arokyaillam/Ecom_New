@@ -22,6 +22,39 @@ vi.mock('./order.repo.js', () => ({
   },
 }));
 
+// ─── Mock payment service ───
+vi.mock('../payment/payment.service.js', () => ({
+  paymentService: {
+    getPaymentStatus: vi.fn() as any,
+    refundPayment: vi.fn() as any,
+  },
+}));
+
+// ─── Mock payment repo ───
+vi.mock('../payment/payment.repo.js', () => ({
+  findPaymentByOrderId: vi.fn() as any,
+  findPaymentsByStoreId: vi.fn() as any,
+  findPaymentById: vi.fn() as any,
+  createRefund: vi.fn() as any,
+  findRefundsByPaymentId: vi.fn() as any,
+  createDispute: vi.fn() as any,
+  findDisputesByStoreId: vi.fn() as any,
+}));
+
+// ─── Mock notification service ───
+vi.mock('../notification/notification.service.js', () => ({
+  notificationService: {
+    createNotification: vi.fn() as any,
+  },
+}));
+
+// ─── Mock audit service ───
+vi.mock('../audit/audit.service.js', () => ({
+  auditService: {
+    log: vi.fn() as any,
+  },
+}));
+
 // ─── Mock db (for db.transaction) ───
 // The service imports { db } from '../../db/index.js' and calls db.transaction(async (tx) => {...}).
 // We need to mock db so that db.transaction calls the callback with our fake tx object.
@@ -447,7 +480,7 @@ describe('orderService.create', () => {
 // ═══════════════════════════════════════════
 describe('orderService.updateStatus', () => {
   it('updates order status to shipped', async () => {
-    const order = { ...mockOrderSimple, status: 'pending', fulfillmentStatus: 'unfulfilled' };
+    const order = { ...mockOrderSimple, status: 'processing', fulfillmentStatus: 'unfulfilled' };
     mockOrderRepo.findByIdSimple.mockResolvedValueOnce(order);
     const updatedOrder = { ...order, status: 'shipped', fulfillmentStatus: 'shipped', shippedAt: expect.any(Date) };
     mockOrderRepo.updateOrder.mockResolvedValueOnce(updatedOrder);
@@ -507,20 +540,20 @@ describe('orderService.updateStatus', () => {
       .rejects.toMatchObject({ code: ErrorCodes.ORDER_NOT_FOUND });
   });
 
-  it('throws ORDER_CANCELLED when order is already cancelled', async () => {
+  it('throws INVALID_ORDER_STATUS when order is already cancelled', async () => {
     const cancelledOrder = { ...mockOrderSimple, status: 'cancelled' };
     mockOrderRepo.findByIdSimple.mockResolvedValueOnce(cancelledOrder);
 
     await expect(orderService.updateStatus('order-1', 'store-1', 'shipped'))
-      .rejects.toMatchObject({ code: ErrorCodes.ORDER_CANCELLED });
+      .rejects.toMatchObject({ code: ErrorCodes.INVALID_ORDER_STATUS });
   });
 
-  it('throws ORDER_ALREADY_FULFILLED when trying to cancel a fulfilled order', async () => {
+  it('throws INVALID_ORDER_STATUS when trying to cancel a fulfilled order', async () => {
     const fulfilledOrder = { ...mockOrderSimple, status: 'delivered', fulfillmentStatus: 'fulfilled' };
     mockOrderRepo.findByIdSimple.mockResolvedValueOnce(fulfilledOrder);
 
     await expect(orderService.updateStatus('order-1', 'store-1', 'cancelled'))
-      .rejects.toMatchObject({ code: ErrorCodes.ORDER_ALREADY_FULFILLED });
+      .rejects.toMatchObject({ code: ErrorCodes.INVALID_ORDER_STATUS });
   });
 
   describe('cancellation with inventory restore', () => {

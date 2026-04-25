@@ -10,6 +10,7 @@ vi.mock('./order.service.js', () => ({
     findByStoreId: vi.fn() as any,
     findById: vi.fn() as any,
     updateStatus: vi.fn() as any,
+    refundOrder: vi.fn() as any,
   },
 }));
 
@@ -228,6 +229,7 @@ describe('PATCH /orders/:id/status', () => {
       '550e8400-e29b-41d4-a716-446655440099',
       'test-store-id',
       'shipped',
+      'test-user-id',
     );
     await fastify.close();
   });
@@ -248,6 +250,7 @@ describe('PATCH /orders/:id/status', () => {
         '550e8400-e29b-41d4-a716-446655440099',
         'test-store-id',
         status,
+        'test-user-id',
       );
       await fastify.close();
     }

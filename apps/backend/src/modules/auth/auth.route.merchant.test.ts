@@ -513,7 +513,7 @@ describe('Merchant Auth Routes', () => {
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.user).toEqual({ id: 'user-1', email: 'owner@store.com', role: 'OWNER' });
+      expect(body.user).toEqual({ id: 'user-1', email: 'owner@store.com', role: 'OWNER', permissions: [] });
 
       await testApp.close();
     });

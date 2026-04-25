@@ -126,6 +126,7 @@ describe('Error code to HTTP status mapping (as defined in index.ts)', () => {
     WISHLIST_ITEM_EXISTS: 409,
     ORDER_ALREADY_FULFILLED: 409,
     ORDER_CANCELLED: 409,
+    INVALID_ORDER_STATUS: 400,
     COUPON_USAGE_EXCEEDED: 409,
     PRICE_MISMATCH: 409,
     COUPON_EXPIRED: 410,
