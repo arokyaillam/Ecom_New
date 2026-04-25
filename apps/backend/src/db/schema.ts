@@ -71,6 +71,7 @@ export const stores = pgTable("stores", {
   customDomain: text("custom_domain"),
   customDomainVerified: boolean("custom_domain_verified").default(false),
   customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
+  integrations: json("integrations").$type<Record<string, { enabled: boolean; config: Record<string, string> }>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

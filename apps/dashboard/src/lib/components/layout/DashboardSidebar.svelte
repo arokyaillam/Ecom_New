@@ -16,6 +16,7 @@ import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Bell from '@lucide/svelte/icons/bell';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
+	import Plug from '@lucide/svelte/icons/plug';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import X from '@lucide/svelte/icons/x';
@@ -58,6 +59,7 @@ import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star, permission: 'reviews:read' },
 		{ label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, permission: 'analytics:read' },
 		{ label: 'Reports', href: '/dashboard/reports', icon: FileSpreadsheet, permission: 'analytics:read' },
+		{ label: 'Integrations', href: '/dashboard/integrations', icon: Plug, permission: 'store:write' },
 		{ label: 'Modifiers', href: '/dashboard/modifiers', icon: SlidersHorizontal, permission: 'products:read' },
 		{
 			label: 'Audit Logs',

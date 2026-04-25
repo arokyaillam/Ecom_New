@@ -2,7 +2,7 @@
 import { FastifyInstance } from 'fastify';
 import { requirePermission } from '../../scopes/merchant.js';
 import { storeService } from './store.service.js';
-import { merchantUpdateStoreSchema as updateStoreSchema, updateDomainSchema } from './store.schema.js';
+import { merchantUpdateStoreSchema as updateStoreSchema, updateDomainSchema, updateIntegrationsSchema } from './store.schema.js';
 
 export default async function merchantStoreRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/store
@@ -87,5 +87,33 @@ export default async function merchantStoreRoutes(fastify: FastifyInstance) {
       customDomainVerified: store.customDomainVerified,
       customDomainVerifiedAt: store.customDomainVerifiedAt,
     };
+  });
+
+  // GET /api/v1/merchant/store/integrations
+  fastify.get('/integrations', {
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'List integrations',
+      description: 'Get current third-party integration configurations',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
+    const integrations = await storeService.getIntegrations(request.storeId);
+    return { integrations };
+  });
+
+  // PATCH /api/v1/merchant/store/integrations
+  fastify.patch('/integrations', {
+    preHandler: requirePermission('store:write'),
+    schema: {
+      tags: ['Merchant Store'],
+      summary: 'Update integration',
+      description: 'Enable/disable or configure a third-party integration',
+      security: [{ cookieAuth: [] }],
+    },
+  }, async (request) => {
+    const parsed = updateIntegrationsSchema.parse(request.body);
+    const integrations = await storeService.updateIntegration(request.storeId, parsed);
+    return { integrations };
   });
 }

@@ -55,3 +55,9 @@ export const merchantUpdateStoreSchema = z.strictObject({
 export const updateDomainSchema = z.strictObject({
   customDomain: z.string().regex(/^[a-z0-9][-a-z0-9]*\.[a-z]{2,}$/i, 'Must be a valid domain (e.g. shop.example.com)'),
 });
+
+export const updateIntegrationsSchema = z.strictObject({
+  provider: z.enum(['razorpay', 'stripe', 'whatsapp', 'shiprocket', 'googleAnalytics', 'metaPixel']),
+  enabled: z.boolean(),
+  config: z.record(z.string(), z.string()).optional(),
+});

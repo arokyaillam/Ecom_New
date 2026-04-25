@@ -61,4 +61,26 @@ export const storeService = {
     });
     return store;
   },
+
+  async getIntegrations(storeId: string) {
+    const store = await this.findByIdOrFail(storeId);
+    return store.integrations ?? {};
+  },
+
+  async updateIntegration(
+    storeId: string,
+    { provider, enabled, config }: { provider: string; enabled: boolean; config?: Record<string, string> },
+  ) {
+    const store = await this.findByIdOrFail(storeId);
+    const existing = (store.integrations ?? {}) as Record<string, { enabled: boolean; config: Record<string, string> }>;
+    const updated = {
+      ...existing,
+      [provider]: {
+        enabled,
+        config: config ?? existing[provider]?.config ?? {},
+      },
+    };
+    const [updatedStore] = await storeRepo.update(storeId, { integrations: updated });
+    return updatedStore.integrations ?? {};
+  },
 };
