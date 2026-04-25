@@ -18,8 +18,10 @@
 	import Package from '@lucide/svelte/icons/package';
 	import History from '@lucide/svelte/icons/history';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import { hasPermission } from '$lib/permissions';
 
 	let { data } = $props();
+	let canWrite = $derived(hasPermission(data.userPermissions, 'inventory:write'));
 
 	let searchValue = $state(data.search || '');
 	let adjustOpen = $state(false);
@@ -263,13 +265,15 @@
 								</Table.Cell>
 								<Table.Cell class="text-right">
 									<div class="flex items-center justify-end gap-1">
-										<button
-											onclick={() => openAdjust(item)}
-											class="p-1.5 rounded hover:bg-muted transition-colors"
-											title="Adjust Stock"
-										>
-											<SlidersHorizontal class="w-4 h-4 text-muted-foreground" />
-										</button>
+										{#if canWrite}
+											<button
+												onclick={() => openAdjust(item)}
+												class="p-1.5 rounded hover:bg-muted transition-colors"
+												title="Adjust Stock"
+											>
+												<SlidersHorizontal class="w-4 h-4 text-muted-foreground" />
+											</button>
+										{/if}
 										<button
 											onclick={() => openHistory(item)}
 											class="p-1.5 rounded hover:bg-muted transition-colors"

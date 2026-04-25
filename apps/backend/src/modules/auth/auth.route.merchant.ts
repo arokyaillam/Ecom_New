@@ -243,7 +243,7 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Merchant Auth'],
       summary: 'Get current merchant user',
-      description: 'Retrieve the currently authenticated merchant user profile',
+      description: 'Retrieve the currently authenticated merchant user profile including permissions',
       security: [{ cookieAuth: [] }],
     },
   }, async (request) => {
@@ -254,6 +254,7 @@ export default async function merchantAuthRoutes(fastify: FastifyInstance) {
         id: currentUser.id,
         email: currentUser.email,
         role: currentUser.role,
+        permissions: request.userPermissions || [],
       },
     };
   });

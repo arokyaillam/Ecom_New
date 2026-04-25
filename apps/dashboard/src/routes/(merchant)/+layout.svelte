@@ -9,7 +9,7 @@
 </script>
 
 <div class="flex h-screen overflow-hidden">
-	<DashboardSidebar user={data.user} bind:open={sidebarOpen} />
+	<DashboardSidebar user={data.user} userPermissions={data.userPermissions} bind:open={sidebarOpen} />
 	<div class="flex-1 flex flex-col overflow-hidden">
 		<DashboardTopbar user={data.user} onmenuclick={() => (sidebarOpen = true)} />
 		<main class="flex-1 overflow-y-auto p-6 bg-background">

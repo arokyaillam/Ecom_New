@@ -6,17 +6,22 @@
 	import UserCog from '@lucide/svelte/icons/user-cog';
 	import Truck from '@lucide/svelte/icons/truck';
 	import Receipt from '@lucide/svelte/icons/receipt';
+	import { hasPermission } from '$lib/permissions';
 
-	let { children } = $props();
+	let { data, children } = $props();
 
 	const tabs = [
-		{ label: 'General', href: '/dashboard/settings/general', icon: Settings },
-		{ label: 'Branding', href: '/dashboard/settings/branding', icon: Palette },
-		{ label: 'Storefront', href: '/dashboard/settings/storefront', icon: Monitor },
-		{ label: 'Staff', href: '/dashboard/settings/staff', icon: UserCog },
-		{ label: 'Shipping', href: '/dashboard/settings/shipping', icon: Truck },
-		{ label: 'Tax', href: '/dashboard/settings/tax', icon: Receipt },
+		{ label: 'General', href: '/dashboard/settings/general', icon: Settings, permission: 'store:read' },
+		{ label: 'Branding', href: '/dashboard/settings/branding', icon: Palette, permission: 'store:write' },
+		{ label: 'Storefront', href: '/dashboard/settings/storefront', icon: Monitor, permission: 'store:write' },
+		{ label: 'Staff', href: '/dashboard/settings/staff', icon: UserCog, permission: 'staff:write' },
+		{ label: 'Shipping', href: '/dashboard/settings/shipping', icon: Truck, permission: 'shipping:write' },
+		{ label: 'Tax', href: '/dashboard/settings/tax', icon: Receipt, permission: 'tax:write' },
 	];
+
+	const visibleTabs = $derived(
+		tabs.filter((t) => hasPermission(data.userPermissions, t.permission))
+	);
 
 	function isActive(href: string) {
 		return page.url.pathname === href;
@@ -30,7 +35,7 @@
 	</div>
 
 	<nav class="flex gap-1 overflow-x-auto pb-1 border-b">
-		{#each tabs as tab}
+		{#each visibleTabs as tab}
 			<a
 				href={tab.href}
 				class="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm whitespace-nowrap transition-colors

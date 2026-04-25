@@ -15,11 +15,13 @@
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Ticket from '@lucide/svelte/icons/ticket';
+	import { hasPermission } from '$lib/permissions';
 
 	let { data } = $props();
 	let showDialog = $state(false);
 	let editingCoupon = $state<any>(null);
 	let saving = $state(false);
+	let canWrite = $derived(hasPermission(data.userPermissions, 'coupons:write'));
 
 	let form = $state({
 		code: '', discountType: 'Percent', discountValue: '', minOrderAmount: '',
@@ -88,7 +90,9 @@
 			<h1 class="text-2xl font-bold tracking-tight">Coupons</h1>
 			<p class="text-muted-foreground">Create and manage discount codes</p>
 		</div>
-		<Button onclick={openCreate} class="gap-2"><Plus class="w-4 h-4" />Create Coupon</Button>
+		{#if canWrite}
+			<Button onclick={openCreate} class="gap-2"><Plus class="w-4 h-4" />Create Coupon</Button>
+		{/if}
 	</div>
 
 	<Card>
@@ -97,7 +101,9 @@
 				<div class="py-16 text-center text-muted-foreground">
 					<Ticket class="w-12 h-12 mx-auto mb-3 opacity-50" />
 					<p class="text-lg font-medium">No coupons yet</p>
-					<Button onclick={openCreate} class="mt-4 gap-2"><Plus class="w-4 h-4" />Create Coupon</Button>
+					{#if canWrite}
+						<Button onclick={openCreate} class="mt-4 gap-2"><Plus class="w-4 h-4" />Create Coupon</Button>
+					{/if}
 				</div>
 			{:else}
 				<Table.Root>
@@ -137,8 +143,10 @@
 								</Table.Cell>
 								<Table.Cell class="text-right">
 									<div class="flex items-center justify-end gap-1">
-										<button onclick={() => openEdit(coupon)} class="p-1.5 rounded hover:bg-muted"><Pencil class="w-4 h-4 text-muted-foreground" /></button>
-										<button onclick={() => deleteCoupon(coupon.id)} class="p-1.5 rounded hover:bg-destructive/10"><Trash2 class="w-4 h-4 text-destructive" /></button>
+										{#if canWrite}
+											<button onclick={() => openEdit(coupon)} class="p-1.5 rounded hover:bg-muted"><Pencil class="w-4 h-4 text-muted-foreground" /></button>
+											<button onclick={() => deleteCoupon(coupon.id)} class="p-1.5 rounded hover:bg-destructive/10"><Trash2 class="w-4 h-4 text-destructive" /></button>
+										{/if}
 									</div>
 								</Table.Cell>
 							</Table.Row>

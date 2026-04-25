@@ -22,9 +22,12 @@
 	import CircleCheck from '@lucide/svelte/icons/circle-check';
 	import XCircle from '@lucide/svelte/icons/x-circle';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import { hasPermission } from '$lib/permissions';
 
 	let { data } = $props();
 	let order = $derived(data.order);
+	let canWriteOrders = $derived(hasPermission(data.userPermissions, 'orders:write'));
+	let canRefund = $derived(hasPermission(data.userPermissions, 'orders:refund'));
 
 	let actionLoading = $state(false);
 	let cancelOpen = $state(false);
@@ -191,25 +194,25 @@
 
 					<!-- Actions -->
 					<div class="flex flex-wrap gap-3 pt-2">
-						{#if order.status === 'pending'}
+						{#if order.status === 'pending' && canWriteOrders}
 							<Button onclick={() => transitionStatus('processing')} disabled={actionLoading}>
 								Mark as Processing
 							</Button>
 							<Button variant="destructive" onclick={() => (cancelOpen = true)} disabled={actionLoading}>
 								Cancel Order
 							</Button>
-						{:else if order.status === 'processing'}
+						{:else if order.status === 'processing' && canWriteOrders}
 							<Button onclick={() => transitionStatus('shipped')} disabled={actionLoading}>
 								Mark as Shipped
 							</Button>
 							<Button variant="destructive" onclick={() => (cancelOpen = true)} disabled={actionLoading}>
 								Cancel Order
 							</Button>
-						{:else if order.status === 'shipped'}
+						{:else if order.status === 'shipped' && canWriteOrders}
 							<Button onclick={() => transitionStatus('delivered')} disabled={actionLoading}>
 								Mark as Delivered
 							</Button>
-						{:else if order.status === 'delivered'}
+						{:else if order.status === 'delivered' && canRefund}
 							<Button variant="outline" onclick={() => (refundOpen = true)} disabled={actionLoading}>
 								Issue Refund
 							</Button>

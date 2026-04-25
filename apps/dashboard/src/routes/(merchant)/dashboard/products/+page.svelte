@@ -15,6 +15,7 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
+	import { hasPermission } from '$lib/permissions';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
@@ -81,10 +82,12 @@
 			<h1 class="text-2xl font-bold tracking-tight">Products</h1>
 			<p class="text-muted-foreground">Manage your product catalog</p>
 		</div>
-		<Button href="/dashboard/products/new" class="gap-2">
-			<Plus class="w-4 h-4" />
-			Add Product
-		</Button>
+		{#if hasPermission(data.userPermissions, 'products:write')}
+			<Button href="/dashboard/products/new" class="gap-2">
+				<Plus class="w-4 h-4" />
+				Add Product
+			</Button>
+		{/if}
 	</div>
 
 	<!-- Search & Filters -->
@@ -116,10 +119,12 @@
 				<div class="py-16 text-center text-muted-foreground">
 					<p class="text-lg font-medium">No products found</p>
 					<p class="text-sm mt-1">Create your first product to get started.</p>
-					<Button href="/dashboard/products/new" class="mt-4 gap-2">
-						<Plus class="w-4 h-4" />
-						Add Product
-					</Button>
+					{#if hasPermission(data.userPermissions, 'products:write')}
+						<Button href="/dashboard/products/new" class="mt-4 gap-2">
+							<Plus class="w-4 h-4" />
+							Add Product
+						</Button>
+					{/if}
 				</div>
 			{:else}
 				<Table.Root>
@@ -180,32 +185,42 @@
 								</Table.Cell>
 								<Table.Cell class="text-right">
 									<div class="flex items-center justify-end gap-1">
-										<button
-											onclick={() => togglePublish(product)}
-											class="p-1.5 rounded hover:bg-muted transition-colors"
-											title={product.isPublished ? 'Unpublish' : 'Publish'}
-										>
-											{#if product.isPublished}
-												<EyeOff class="w-4 h-4 text-muted-foreground" />
-											{:else}
+										{#if hasPermission(data.userPermissions, 'products:write')}
+											<button
+												onclick={() => togglePublish(product)}
+												class="p-1.5 rounded hover:bg-muted transition-colors"
+												title={product.isPublished ? 'Unpublish' : 'Publish'}
+											>
+												{#if product.isPublished}
+													<EyeOff class="w-4 h-4 text-muted-foreground" />
+												{:else}
+													<Eye class="w-4 h-4 text-muted-foreground" />
+												{/if}
+											</button>
+											<a
+												href="/dashboard/products/{product.id}"
+												class="p-1.5 rounded hover:bg-muted transition-colors"
+												title="Edit"
+											>
+												<Pencil class="w-4 h-4 text-muted-foreground" />
+											</a>
+											<button
+												onclick={() => deleteProduct(product.id)}
+												disabled={deleting === product.id}
+												class="p-1.5 rounded hover:bg-destructive/10 transition-colors"
+												title="Delete"
+											>
+												<Trash2 class="w-4 h-4 text-destructive" />
+											</button>
+										{:else}
+											<a
+												href="/dashboard/products/{product.id}"
+												class="p-1.5 rounded hover:bg-muted transition-colors"
+												title="View"
+											>
 												<Eye class="w-4 h-4 text-muted-foreground" />
-											{/if}
-										</button>
-										<a
-											href="/dashboard/products/{product.id}"
-											class="p-1.5 rounded hover:bg-muted transition-colors"
-											title="Edit"
-										>
-											<Pencil class="w-4 h-4 text-muted-foreground" />
-										</a>
-										<button
-											onclick={() => deleteProduct(product.id)}
-											disabled={deleting === product.id}
-											class="p-1.5 rounded hover:bg-destructive/10 transition-colors"
-											title="Delete"
-										>
-											<Trash2 class="w-4 h-4 text-destructive" />
-										</button>
+											</a>
+										{/if}
 									</div>
 								</Table.Cell>
 							</Table.Row>

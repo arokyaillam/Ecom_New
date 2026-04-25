@@ -17,8 +17,10 @@
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import { hasPermission } from '$lib/permissions';
 
 	let { data } = $props();
+	let canWrite = $derived(hasPermission(data.userPermissions, 'reviews:write'));
 
 	const reviews = $derived(data.reviews?.reviews || []);
 	const total = $derived(data.reviews?.total || 0);
@@ -144,19 +146,21 @@
 									{/if}
 								</div>
 								<div class="flex items-center gap-1 shrink-0">
-									{#if review.isApproved !== true}
-										<button onclick={() => approveReview(review.id)} class="p-1.5 rounded hover:bg-success/10" title="Approve">
-											<Check class="w-4 h-4 text-success" />
+									{#if canWrite}
+										{#if review.isApproved !== true}
+											<button onclick={() => approveReview(review.id)} class="p-1.5 rounded hover:bg-success/10" title="Approve">
+												<Check class="w-4 h-4 text-success" />
+											</button>
+										{/if}
+										{#if review.isApproved !== false}
+											<button onclick={() => rejectReview(review.id)} class="p-1.5 rounded hover:bg-destructive/10" title="Reject">
+												<X class="w-4 h-4 text-destructive" />
+											</button>
+										{/if}
+										<button onclick={() => openRespond(review)} class="p-1.5 rounded hover:bg-muted" title="Respond">
+											<MessageSquare class="w-4 h-4 text-muted-foreground" />
 										</button>
 									{/if}
-									{#if review.isApproved !== false}
-										<button onclick={() => rejectReview(review.id)} class="p-1.5 rounded hover:bg-destructive/10" title="Reject">
-											<X class="w-4 h-4 text-destructive" />
-										</button>
-									{/if}
-									<button onclick={() => openRespond(review)} class="p-1.5 rounded hover:bg-muted" title="Respond">
-										<MessageSquare class="w-4 h-4 text-muted-foreground" />
-									</button>
 								</div>
 							</div>
 						</div>

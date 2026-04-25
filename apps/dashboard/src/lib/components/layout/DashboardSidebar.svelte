@@ -16,12 +16,14 @@
 	import X from '@lucide/svelte/icons/x';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { Separator } from '$lib/components/ui/separator';
+	import { hasPermission } from '$lib/permissions';
 
 	interface NavItem {
 		label: string;
 		href: string;
 		icon: typeof LayoutDashboard;
 		children?: NavItem[];
+		permission?: string;
 	}
 
 	interface Props {
@@ -30,34 +32,36 @@
 			storeId: string;
 			role: string;
 		};
+		userPermissions?: string[];
 		open?: boolean;
 		onclose?: () => void;
 	}
 
-	let { user, open = $bindable(false), onclose }: Props = $props();
+	let { user, userPermissions = [], open = $bindable(false), onclose }: Props = $props();
 
 	const navItems: NavItem[] = [
 		{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-		{ label: 'Products', href: '/dashboard/products', icon: PackageIcon },
-		{ label: 'Inventory', href: '/dashboard/inventory', icon: Boxes },
-		{ label: 'Categories', href: '/dashboard/categories', icon: Grid3x3 },
-		{ label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
-		{ label: 'Payments', href: '/dashboard/payments', icon: CreditCard },
-		{ label: 'Customers', href: '/dashboard/customers', icon: Users },
-		{ label: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
-		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star },
-		{ label: 'Modifiers', href: '/dashboard/modifiers', icon: SlidersHorizontal },
+		{ label: 'Products', href: '/dashboard/products', icon: PackageIcon, permission: 'products:read' },
+		{ label: 'Inventory', href: '/dashboard/inventory', icon: Boxes, permission: 'inventory:write' },
+		{ label: 'Categories', href: '/dashboard/categories', icon: Grid3x3, permission: 'products:read' },
+		{ label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, permission: 'orders:read' },
+		{ label: 'Payments', href: '/dashboard/payments', icon: CreditCard, permission: 'payments:manage' },
+		{ label: 'Customers', href: '/dashboard/customers', icon: Users, permission: 'customers:read' },
+		{ label: 'Coupons', href: '/dashboard/coupons', icon: Ticket, permission: 'coupons:read' },
+		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star, permission: 'reviews:read' },
+		{ label: 'Modifiers', href: '/dashboard/modifiers', icon: SlidersHorizontal, permission: 'products:read' },
 		{
 			label: 'Settings',
 			href: '/dashboard/settings',
 			icon: Settings,
+			permission: 'store:read',
 			children: [
-				{ label: 'General', href: '/dashboard/settings/general', icon: Settings },
-				{ label: 'Branding', href: '/dashboard/settings/branding', icon: Settings },
-				{ label: 'Storefront', href: '/dashboard/settings/storefront', icon: Settings },
-				{ label: 'Staff', href: '/dashboard/settings/staff', icon: Settings },
-				{ label: 'Shipping', href: '/dashboard/settings/shipping', icon: Settings },
-				{ label: 'Tax', href: '/dashboard/settings/tax', icon: Settings },
+				{ label: 'General', href: '/dashboard/settings/general', icon: Settings, permission: 'store:read' },
+				{ label: 'Branding', href: '/dashboard/settings/branding', icon: Settings, permission: 'store:write' },
+				{ label: 'Storefront', href: '/dashboard/settings/storefront', icon: Settings, permission: 'store:write' },
+				{ label: 'Staff', href: '/dashboard/settings/staff', icon: Settings, permission: 'staff:write' },
+				{ label: 'Shipping', href: '/dashboard/settings/shipping', icon: Settings, permission: 'shipping:write' },
+				{ label: 'Tax', href: '/dashboard/settings/tax', icon: Settings, permission: 'tax:write' },
 			],
 		},
 	];
@@ -77,6 +81,16 @@
 	function handleLogout() {
 		// Submit a logout form to clear cookies server-side
 		document.querySelector<HTMLFormElement>('#logout-form')?.requestSubmit();
+	}
+
+	function canSee(item: NavItem): boolean {
+		if (!item.permission) return true;
+		return hasPermission(userPermissions, item.permission);
+	}
+
+	function hasAnyVisibleChild(item: NavItem): boolean {
+		if (!item.children) return true;
+		return item.children.some((c) => canSee(c));
 	}
 </script>
 
@@ -126,41 +140,45 @@
 	<!-- Navigation -->
 	<nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
 		{#each navItems as item}
-			{#if item.children}
-				<!-- Settings with expandable sub-items -->
-				<button
-					class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-						{isActive(item.href) ? 'bg-sidebar-active/10 text-sidebar-active' : 'text-sidebar-foreground hover:bg-sidebar-hover'}"
-					onclick={() => (settingsExpanded = !settingsExpanded)}
-				>
-					<svelte:component this={item.icon} class="w-5 h-5 shrink-0" />
-					<span class="flex-1 text-left">{item.label}</span>
-					<ChevronRight
-						class="w-4 h-4 transition-transform {settingsExpanded ? 'rotate-90' : ''}"
-					/>
-				</button>
-				{#if settingsExpanded}
-					<div class="ml-8 space-y-1">
-						{#each item.children as child}
-							<a
-								href={child.href}
-								class="block px-3 py-2 rounded-lg text-sm
-									{isActive(child.href) ? 'bg-sidebar-active/10 text-sidebar-active' : 'text-sidebar-foreground/70 hover:bg-sidebar-hover hover:text-sidebar-foreground'}"
-							>
-								{child.label}
-							</a>
-						{/each}
-					</div>
+			{#if canSee(item) && hasAnyVisibleChild(item)}
+				{#if item.children}
+					<!-- Settings with expandable sub-items -->
+					<button
+						class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+							{isActive(item.href) ? 'bg-sidebar-active/10 text-sidebar-active' : 'text-sidebar-foreground hover:bg-sidebar-hover'}"
+						onclick={() => (settingsExpanded = !settingsExpanded)}
+					>
+						<svelte:component this={item.icon} class="w-5 h-5 shrink-0" />
+						<span class="flex-1 text-left">{item.label}</span>
+						<ChevronRight
+							class="w-4 h-4 transition-transform {settingsExpanded ? 'rotate-90' : ''}"
+						/>
+					</button>
+					{#if settingsExpanded}
+						<div class="ml-8 space-y-1">
+							{#each item.children as child}
+								{#if canSee(child)}
+									<a
+										href={child.href}
+										class="block px-3 py-2 rounded-lg text-sm
+											{isActive(child.href) ? 'bg-sidebar-active/10 text-sidebar-active' : 'text-sidebar-foreground/70 hover:bg-sidebar-hover hover:text-sidebar-foreground'}"
+									>
+										{child.label}
+									</a>
+								{/if}
+							{/each}
+						</div>
+					{/if}
+				{:else}
+					<a
+						href={item.href}
+						class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+							{isActive(item.href) ? 'bg-sidebar-active/10 text-sidebar-active font-medium' : 'text-sidebar-foreground hover:bg-sidebar-hover'}"
+					>
+						<svelte:component this={item.icon} class="w-5 h-5 shrink-0" />
+						<span>{item.label}</span>
+					</a>
 				{/if}
-			{:else}
-				<a
-					href={item.href}
-					class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-						{isActive(item.href) ? 'bg-sidebar-active/10 text-sidebar-active font-medium' : 'text-sidebar-foreground hover:bg-sidebar-hover'}"
-				>
-					<svelte:component this={item.icon} class="w-5 h-5 shrink-0" />
-					<span>{item.label}</span>
-				</a>
 			{/if}
 		{/each}
 	</nav>

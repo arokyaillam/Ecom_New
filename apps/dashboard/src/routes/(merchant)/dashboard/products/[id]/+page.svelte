@@ -13,11 +13,13 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Save from '@lucide/svelte/icons/save';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { hasPermission } from '$lib/permissions';
 
 	let { data } = $props();
 
 	let saving = $state(false);
 	let product = $derived(data.product);
+	let canWrite = $derived(hasPermission(data.userPermissions, 'products:write'));
 
 	let form = $state({
 		titleEn: data.product.titleEn || '',
@@ -99,17 +101,20 @@
 				Back
 			</Button>
 			<div>
-				<h1 class="text-2xl font-bold tracking-tight">Edit Product</h1>
+				<h1 class="text-2xl font-bold tracking-tight">{canWrite ? 'Edit Product' : 'View Product'}</h1>
 				<p class="text-muted-foreground">{product.titleEn}</p>
 			</div>
 		</div>
-		<Button variant="destructive" size="sm" onclick={handleDelete} class="gap-2">
-			<Trash2 class="w-4 h-4" />
-			Delete
-		</Button>
+		{#if canWrite}
+			<Button variant="destructive" size="sm" onclick={handleDelete} class="gap-2">
+				<Trash2 class="w-4 h-4" />
+				Delete
+			</Button>
+		{/if}
 	</div>
 
 	<form onsubmit={(e) => { e.preventDefault(); handleSave(); }} class="space-y-6">
+		<fieldset disabled={!canWrite} class="space-y-6 contents">
 		<!-- Basic Info -->
 		<Card>
 			<CardHeader>
@@ -237,13 +242,16 @@
 			</CardContent>
 		</Card>
 
+		</fieldset>
 		<!-- Actions -->
 		<div class="flex justify-end gap-3">
-			<Button variant="outline" href="/dashboard/products">Cancel</Button>
-			<Button type="submit" disabled={saving} class="gap-2">
-				<Save class="w-4 h-4" />
-				{saving ? 'Saving...' : 'Save Changes'}
-			</Button>
+			<Button variant="outline" href="/dashboard/products">Back</Button>
+			{#if canWrite}
+				<Button type="submit" disabled={saving} class="gap-2">
+					<Save class="w-4 h-4" />
+					{saving ? 'Saving...' : 'Save Changes'}
+				</Button>
+			{/if}
 		</div>
 	</form>
 </div>
