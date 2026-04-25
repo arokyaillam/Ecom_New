@@ -473,6 +473,7 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   paymentRefunds: many(paymentRefunds),
   paymentDisputes: many(paymentDisputes),
   inventoryHistory: many(inventoryHistory),
+  banners: many(banners),
 }));
 
 export const categoriesRelations = relations(categories, ({ many, one }) => ({
@@ -978,6 +979,27 @@ export const inventoryHistory = pgTable("inventory_history", {
   index("inventory_history_store_id_idx").on(table.storeId),
 ]);
 
+// ─── Marketing: Banners ───
+
+export const banners = pgTable("banners", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  imageUrl: text("image_url"),
+  linkUrl: text("link_url"),
+  position: text("position").default("homepage_hero").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("banners_store_id_position_idx").on(table.storeId, table.position),
+  index("banners_store_id_sort_order_idx").on(table.storeId, table.sortOrder),
+]);
+
 // ─── Phase 3 Relations ───
 
 export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
@@ -1046,5 +1068,12 @@ export const inventoryHistoryRelations = relations(inventoryHistory, ({ one }) =
   user: one(users, {
     fields: [inventoryHistory.userId],
     references: [users.id],
+  }),
+}));
+
+export const bannersRelations = relations(banners, ({ one }) => ({
+  store: one(stores, {
+    fields: [banners.storeId],
+    references: [stores.id],
   }),
 }));

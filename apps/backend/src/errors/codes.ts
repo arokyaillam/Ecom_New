@@ -98,6 +98,9 @@ export const ErrorCodes = {
   PAYMENT_FAILED: 'PAYMENT_FAILED',
   PAYMENT_PROVIDER_NOT_ENABLED: 'PAYMENT_PROVIDER_NOT_ENABLED',
   PAYMENT_ALREADY_PROCESSED: 'PAYMENT_ALREADY_PROCESSED',
+
+  // Marketing
+  BANNER_NOT_FOUND: 'BANNER_NOT_FOUND',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

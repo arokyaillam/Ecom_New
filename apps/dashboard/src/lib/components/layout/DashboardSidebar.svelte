@@ -6,6 +6,7 @@
 	import ShoppingCart from '@lucide/svelte/icons/shopping-cart';
 	import Users from '@lucide/svelte/icons/users';
 	import Ticket from '@lucide/svelte/icons/ticket';
+	import Megaphone from '@lucide/svelte/icons/megaphone';
 	import Star from '@lucide/svelte/icons/star';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Boxes from '@lucide/svelte/icons/boxes';
@@ -50,6 +51,7 @@ import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 		{ label: 'Payments', href: '/dashboard/payments', icon: CreditCard, permission: 'payments:manage' },
 		{ label: 'Customers', href: '/dashboard/customers', icon: Users, permission: 'customers:read' },
 		{ label: 'Coupons', href: '/dashboard/coupons', icon: Ticket, permission: 'coupons:read' },
+		{ label: 'Marketing', href: '/dashboard/marketing', icon: Megaphone, permission: 'store:write' },
 		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star, permission: 'reviews:read' },
 		{ label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, permission: 'analytics:read' },
 		{ label: 'Reports', href: '/dashboard/reports', icon: FileSpreadsheet, permission: 'analytics:read' },
