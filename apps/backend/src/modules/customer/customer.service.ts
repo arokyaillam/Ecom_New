@@ -13,8 +13,22 @@ export const customerService = {
 
     const { rows, total } = await customerRepo.findByStoreId(storeId, { limit, offset });
 
+    // Enrich with LTV and orderCount
+    const customerIds = rows.map((r) => r.id);
+    const aggregates = await customerRepo.getCustomerAggregates(customerIds, storeId);
+    const aggMap = new Map(aggregates.map((a) => [a.customerId, a]));
+
+    const data = rows.map((customer) => {
+      const agg = aggMap.get(customer.id);
+      return {
+        ...customer,
+        ltv: agg?.ltv ?? '0',
+        orderCount: agg?.orderCount ?? 0,
+      };
+    });
+
     return {
-      data: rows,
+      data,
       pagination: {
         page,
         limit,
@@ -34,6 +48,32 @@ export const customerService = {
     }
 
     return customer;
+  },
+
+  async getCustomerDetail(customerId: string, storeId: string) {
+    const customer = await customerRepo.findById(customerId, storeId);
+
+    if (!customer) {
+      throw Object.assign(new Error('Customer not found'), {
+        code: ErrorCodes.CUSTOMER_NOT_FOUND,
+      });
+    }
+
+    const [ltv, orderCount, ordersResult] = await Promise.all([
+      customerRepo.getCustomerLTV(customerId, storeId),
+      customerRepo.getCustomerOrderCount(customerId, storeId),
+      customerRepo.getCustomerOrders(customerId, storeId, { page: 1, limit: 5 }),
+    ]);
+
+    // Strip password from response
+    const { password: _, ...customerWithoutPassword } = customer as Record<string, unknown>;
+
+    return {
+      customer: customerWithoutPassword,
+      ltv,
+      orderCount,
+      orders: ordersResult.data,
+    };
   },
 
   async create(data: {
@@ -124,6 +164,44 @@ export const customerService = {
     }
 
     const updated = await customerRepo.updateCustomer(customerId, storeId, data);
+
+    // Strip password from response
+    if (updated) {
+      const { password: _, ...result } = updated;
+      return result;
+    }
+    return updated;
+  },
+
+  async blockCustomer(customerId: string, storeId: string, reason?: string) {
+    const customer = await customerRepo.findById(customerId, storeId);
+
+    if (!customer) {
+      throw Object.assign(new Error('Customer not found'), {
+        code: ErrorCodes.CUSTOMER_NOT_FOUND,
+      });
+    }
+
+    const updated = await customerRepo.updateBlockedStatus(customerId, storeId, true, reason);
+
+    // Strip password from response
+    if (updated) {
+      const { password: _, ...result } = updated;
+      return result;
+    }
+    return updated;
+  },
+
+  async unblockCustomer(customerId: string, storeId: string) {
+    const customer = await customerRepo.findById(customerId, storeId);
+
+    if (!customer) {
+      throw Object.assign(new Error('Customer not found'), {
+        code: ErrorCodes.CUSTOMER_NOT_FOUND,
+      });
+    }
+
+    const updated = await customerRepo.updateBlockedStatus(customerId, storeId, false);
 
     // Strip password from response
     if (updated) {

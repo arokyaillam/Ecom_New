@@ -49,3 +49,7 @@ export const updateCustomerSchema = z.strictObject({
   avatarUrl: z.string().optional(),
   marketingEmails: z.boolean().optional(),
 });
+
+export const blockCustomerSchema = z.strictObject({
+  reason: z.string().max(500).optional(),
+});

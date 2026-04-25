@@ -3,7 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { requirePermission } from '../../scopes/merchant.js';
 import { customerService } from './customer.service.js';
 import { idParamSchema } from '../_shared/schema.js';
-import { listQuerySchema, createCustomerSchema, updateCustomerSchema } from './customer.schema.js';
+import { listQuerySchema, createCustomerSchema, updateCustomerSchema, blockCustomerSchema } from './customer.schema.js';
 
 export default async function merchantCustomersRoutes(fastify: FastifyInstance) {
   // GET /api/v1/merchant/customers
@@ -48,8 +48,8 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
     },
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
-    const customer = await customerService.findById(id, request.storeId);
-    return { customer };
+    const result = await customerService.getCustomerDetail(id, request.storeId);
+    return result;
   });
 
   // PATCH /api/v1/merchant/customers/:id
@@ -72,6 +72,37 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
       }
     }
     const customer = await customerService.update(id, request.storeId, updateData as Parameters<typeof customerService.update>[2]);
+    return { customer };
+  });
+
+  // POST /api/v1/merchant/customers/:id/block
+  fastify.post('/:id/block', {
+    schema: {
+      tags: ['Merchant Customers'],
+      summary: 'Block customer',
+      description: 'Block a customer from placing orders',
+      security: [{ cookieAuth: [] }],
+    },
+    preHandler: requirePermission('customers:write'),
+  }, async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const parsed = blockCustomerSchema.parse(request.body);
+    const customer = await customerService.blockCustomer(id, request.storeId, parsed.reason);
+    return { customer };
+  });
+
+  // POST /api/v1/merchant/customers/:id/unblock
+  fastify.post('/:id/unblock', {
+    schema: {
+      tags: ['Merchant Customers'],
+      summary: 'Unblock customer',
+      description: 'Unblock a previously blocked customer',
+      security: [{ cookieAuth: [] }],
+    },
+    preHandler: requirePermission('customers:write'),
+  }, async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const customer = await customerService.unblockCustomer(id, request.storeId);
     return { customer };
   });
 }

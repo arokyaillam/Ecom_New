@@ -1,7 +1,7 @@
 // Customer repository — Drizzle queries only, no business logic
 import { db } from '../../db/index.js';
-import { customers, customerAddresses } from '../../db/schema.js';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { customers, customerAddresses, orders } from '../../db/schema.js';
+import { eq, and, desc, count, sql, inArray } from 'drizzle-orm';
 
 type DbExecutor = typeof db;
 
@@ -40,6 +40,9 @@ export const customerRepo = {
           phone: true,
           avatarUrl: true,
           isVerified: true,
+          isBlocked: true,
+          blockedAt: true,
+          blockedReason: true,
           marketingEmails: true,
           lastLoginAt: true,
           createdAt: true,
@@ -73,6 +76,9 @@ export const customerRepo = {
         phone: true,
         avatarUrl: true,
         isVerified: true,
+        isBlocked: true,
+        blockedAt: true,
+        blockedReason: true,
         marketingEmails: true,
         lastLoginAt: true,
         createdAt: true,
@@ -137,6 +143,9 @@ export const customerRepo = {
         phone: true,
         avatarUrl: true,
         isVerified: true,
+        isBlocked: true,
+        blockedAt: true,
+        blockedReason: true,
         marketingEmails: true,
         lastLoginAt: true,
         createdAt: true,
@@ -165,6 +174,101 @@ export const customerRepo = {
         passwordResetExpires: null,
         marketingEmails: false,
         isVerified: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(customers.id, customerId), eq(customers.storeId, storeId)))
+      .returning();
+    return updated;
+  },
+
+  // --- LTV + Orders ---
+
+  async getCustomerLTV(customerId: string, storeId: string) {
+    const [result] = await db
+      .select({
+        ltv: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.storeId, storeId),
+          eq(orders.customerId, customerId),
+          sql`${orders.status} != 'cancelled'`,
+        ),
+      );
+    return result?.ltv ?? '0';
+  },
+
+  async getCustomerOrderCount(customerId: string, storeId: string) {
+    const [result] = await db
+      .select({ count: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.storeId, storeId),
+          eq(orders.customerId, customerId),
+          sql`${orders.status} != 'cancelled'`,
+        ),
+      );
+    return result?.count ?? 0;
+  },
+
+  async getCustomerOrders(
+    customerId: string,
+    storeId: string,
+    opts: { page: number; limit: number },
+  ) {
+    const offset = (opts.page - 1) * opts.limit;
+    const [rows, totalResult] = await Promise.all([
+      db.query.orders.findMany({
+        where: and(eq(orders.storeId, storeId), eq(orders.customerId, customerId)),
+        orderBy: [desc(orders.createdAt)],
+        limit: opts.limit,
+        offset,
+      }),
+      db.select({ count: count() })
+        .from(orders)
+        .where(and(eq(orders.storeId, storeId), eq(orders.customerId, customerId))),
+    ]);
+    return {
+      data: rows,
+      total: totalResult[0]?.count ?? 0,
+    };
+  },
+
+  async getCustomerAggregates(customerIds: string[], storeId: string) {
+    if (customerIds.length === 0) return [];
+    return db
+      .select({
+        customerId: orders.customerId,
+        ltv: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+        orderCount: sql<number>`COUNT(*)`,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.storeId, storeId),
+          inArray(orders.customerId, customerIds),
+          sql`${orders.status} != 'cancelled'`,
+        ),
+      )
+      .groupBy(orders.customerId);
+  },
+
+  // --- Block status ---
+
+  async updateBlockedStatus(
+    customerId: string,
+    storeId: string,
+    isBlocked: boolean,
+    reason?: string,
+  ) {
+    const [updated] = await db
+      .update(customers)
+      .set({
+        isBlocked,
+        blockedAt: isBlocked ? new Date() : null,
+        blockedReason: isBlocked ? (reason ?? null) : null,
         updatedAt: new Date(),
       })
       .where(and(eq(customers.id, customerId), eq(customers.storeId, storeId)))
