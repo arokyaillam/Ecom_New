@@ -11,6 +11,7 @@
 	let { data } = $props();
 	const stats = $derived(data.stats);
 	const recentOrders = $derived(data.recentOrders || []);
+	const lowStockCount = $derived(data.lowStockCount ?? 0);
 
 	function formatPrice(p: string | number) {
 		return `$${Number(p || 0).toFixed(2)}`;
@@ -88,6 +89,9 @@
 				<div class="text-2xl font-bold">{stats?.totalProducts ?? '—'}</div>
 				{#if stats?.outOfStockProducts}
 					<p class="text-xs text-destructive mt-1">{stats.outOfStockProducts} out of stock</p>
+				{/if}
+				{#if lowStockCount > 0}
+					<p class="text-xs text-warning mt-1">{lowStockCount} low stock</p>
 				{/if}
 			</CardContent>
 		</Card>

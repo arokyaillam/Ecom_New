@@ -8,6 +8,7 @@
 	import Ticket from '@lucide/svelte/icons/ticket';
 	import Star from '@lucide/svelte/icons/star';
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import Boxes from '@lucide/svelte/icons/boxes';
 	import Settings from '@lucide/svelte/icons/settings';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -37,6 +38,7 @@
 	const navItems: NavItem[] = [
 		{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
 		{ label: 'Products', href: '/dashboard/products', icon: PackageIcon },
+		{ label: 'Inventory', href: '/dashboard/inventory', icon: Boxes },
 		{ label: 'Categories', href: '/dashboard/categories', icon: Grid3x3 },
 		{ label: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
 		{ label: 'Customers', href: '/dashboard/customers', icon: Users },
