@@ -13,9 +13,13 @@ export { paginationQuerySchema as listQuerySchema };
 export const merchantListQuerySchema = z.strictObject({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
+  status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']).optional(),
 });
 
 export const updateStatusSchema = z.strictObject({
-  status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled']),
+  status: z.enum(['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']),
+});
+
+export const refundOrderSchema = z.strictObject({
+  reason: z.string().min(1).max(500),
 });

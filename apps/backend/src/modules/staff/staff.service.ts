@@ -10,7 +10,7 @@ export const DEFAULT_PERMISSIONS: Record<string, string[]> = {
   OWNER: ['*'],
   MANAGER: [
     'products:read', 'products:write',
-    'orders:read', 'orders:write',
+    'orders:read', 'orders:write', 'orders:refund',
     'customers:read',
     'coupons:read', 'coupons:write',
     'analytics:read',
@@ -25,7 +25,7 @@ export const DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'staff:write',
   ],
   CASHIER: [
-    'orders:read', 'orders:write',
+    'orders:read', 'orders:write', 'orders:refund',
     'customers:read',
     'products:read',
   ],

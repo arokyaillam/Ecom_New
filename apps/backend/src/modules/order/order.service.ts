@@ -4,11 +4,32 @@ import { db } from '../../db/index.js';
 import { orders } from '../../db/schema.js';
 import { ErrorCodes } from '../../errors/codes.js';
 import { orderRepo } from './order.repo.js';
+import { paymentService } from '../payment/payment.service.js';
+import { findPaymentByOrderId } from '../payment/payment.repo.js';
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `ORD-${timestamp}-${random}`;
+}
+
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered', 'cancelled'],
+  delivered: ['refunded'],
+  cancelled: [],
+  refunded: [],
+};
+
+function validateStatusTransition(currentStatus: string, newStatus: string) {
+  const allowed = ALLOWED_TRANSITIONS[currentStatus];
+  if (!allowed || !allowed.includes(newStatus)) {
+    throw Object.assign(
+      new Error(`Cannot transition order from ${currentStatus} to ${newStatus}`),
+      { code: ErrorCodes.INVALID_ORDER_STATUS },
+    );
+  }
 }
 
 export const orderService = {
@@ -186,17 +207,7 @@ export const orderService = {
       });
     }
 
-    if (order.status === 'cancelled') {
-      throw Object.assign(new Error('Order is already cancelled'), {
-        code: ErrorCodes.ORDER_CANCELLED,
-      });
-    }
-
-    if (order.fulfillmentStatus === 'fulfilled' && status === 'cancelled') {
-      throw Object.assign(new Error('Cannot cancel a fulfilled order'), {
-        code: ErrorCodes.ORDER_ALREADY_FULFILLED,
-      });
-    }
+    validateStatusTransition(order.status, status);
 
     const updateData: Partial<typeof orders.$inferInsert> = {
       status,
@@ -236,5 +247,43 @@ export const orderService = {
     }
 
     return orderRepo.updateOrder(orderId, storeId, updateData);
+  },
+
+  async refundOrder(orderId: string, storeId: string, userId: string, reason: string) {
+    const order = await orderRepo.findByIdSimple(orderId, storeId);
+
+    if (!order) {
+      throw Object.assign(new Error('Order not found'), {
+        code: ErrorCodes.ORDER_NOT_FOUND,
+      });
+    }
+
+    if (order.status !== 'delivered') {
+      throw Object.assign(new Error('Order must be delivered to issue a refund'), {
+        code: ErrorCodes.INVALID_ORDER_STATUS,
+      });
+    }
+
+    const payment = await findPaymentByOrderId(orderId, storeId);
+    if (!payment) {
+      throw Object.assign(new Error('No payment found for this order'), {
+        code: ErrorCodes.PAYMENT_FAILED,
+      });
+    }
+
+    const refund = await paymentService.refundPayment(
+      payment.id,
+      storeId,
+      userId,
+      { amount: payment.amount, reason },
+    );
+
+    await orderRepo.updateOrder(orderId, storeId, {
+      status: 'refunded',
+      updatedAt: new Date(),
+    });
+
+    const updatedOrder = await this.findById(orderId, storeId);
+    return { order: updatedOrder, refund };
   },
 };

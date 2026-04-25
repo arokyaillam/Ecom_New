@@ -1,25 +1,42 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card';
+	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
-	import * as Select from '$lib/components/ui/select';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Label } from '$lib/components/ui/label';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Table from '$lib/components/ui/table';
 	import { apiFetch } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
+	import { cn } from '$lib/utils';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Package from '@lucide/svelte/icons/package';
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import User from '@lucide/svelte/icons/user';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
+	import Clock from '@lucide/svelte/icons/clock';
+	import Loader2 from '@lucide/svelte/icons/loader-2';
+	import Truck from '@lucide/svelte/icons/truck';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import XCircle from '@lucide/svelte/icons/x-circle';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	let { data } = $props();
 	let order = $derived(data.order);
 
-	let updatingStatus = $state(false);
+	let actionLoading = $state(false);
+	let cancelOpen = $state(false);
+	let refundOpen = $state(false);
+	let refundReason = $state('');
 
-	const statusOptions = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+	const statusSteps = [
+		{ key: 'pending', label: 'Pending', icon: Clock },
+		{ key: 'processing', label: 'Processing', icon: Loader2 },
+		{ key: 'shipped', label: 'Shipped', icon: Truck },
+		{ key: 'delivered', label: 'Delivered', icon: CircleCheck },
+	];
 
 	const statusColors: Record<string, string> = {
 		pending: 'bg-warning/15 text-warning border-warning/30',
@@ -27,21 +44,59 @@
 		shipped: 'bg-primary/15 text-primary border-primary/30',
 		delivered: 'bg-success/15 text-success border-success/30',
 		cancelled: 'bg-destructive/15 text-destructive border-destructive/30',
+		refunded: 'bg-info/15 text-info border-info/30',
 	};
 
-	async function updateStatus(newStatus: string) {
-		updatingStatus = true;
+	function getStepState(stepKey: string, currentStatus: string) {
+		if (currentStatus === 'cancelled' || currentStatus === 'refunded') return 'inactive';
+		const stepIndex = statusSteps.findIndex((s) => s.key === stepKey);
+		const currentIndex = statusSteps.findIndex((s) => s.key === currentStatus);
+		if (stepIndex < currentIndex) return 'completed';
+		if (stepIndex === currentIndex) return 'current';
+		return 'inactive';
+	}
+
+	async function transitionStatus(newStatus: string) {
+		actionLoading = true;
 		try {
 			await apiFetch(`/merchant/orders/${order.id}/status`, {
 				method: 'PATCH',
 				body: JSON.stringify({ status: newStatus }),
 			});
-			toast.success(`Order status updated to ${newStatus}`);
+			toast.success(`Order marked as ${newStatus}`);
 			invalidateAll();
 		} catch (err: any) {
 			toast.error(err?.message || 'Failed to update status');
 		} finally {
-			updatingStatus = false;
+			actionLoading = false;
+		}
+	}
+
+	async function submitCancel() {
+		cancelOpen = false;
+		await transitionStatus('cancelled');
+	}
+
+	async function submitRefund() {
+		const reason = refundReason.trim();
+		if (!reason) {
+			toast.error('Please provide a reason for the refund');
+			return;
+		}
+		actionLoading = true;
+		try {
+			await apiFetch(`/merchant/orders/${order.id}/refund`, {
+				method: 'POST',
+				body: JSON.stringify({ reason }),
+			});
+			toast.success('Refund issued successfully');
+			refundOpen = false;
+			refundReason = '';
+			invalidateAll();
+		} catch (err: any) {
+			toast.error(err?.message || 'Failed to issue refund');
+		} finally {
+			actionLoading = false;
 		}
 	}
 
@@ -75,25 +130,90 @@
 	<div class="grid md:grid-cols-3 gap-6">
 		<!-- Main Column -->
 		<div class="md:col-span-2 space-y-6">
-			<!-- Status Update -->
+			<!-- Status Timeline -->
 			<Card>
 				<CardHeader>
-					<CardTitle class="text-base">Update Status</CardTitle>
+					<CardTitle class="text-base">Order Status</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div class="flex gap-3">
-						<Select.Root type="single" value={order.status} onValueChange={(v) => updateStatus(v)}>
-							<Select.Trigger class="w-48" disabled={updatingStatus}>
-								{#snippet children()}
-									<span class="capitalize">{order.status}</span>
-								{/snippet}
-							</Select.Trigger>
-							<Select.Content>
-								{#each statusOptions as s}
-									<Select.Item value={s}><span class="capitalize">{s}</span></Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
+				<CardContent class="space-y-6">
+					{#if order.status === 'cancelled'}
+						<div class="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+							<XCircle class="w-6 h-6 shrink-0" />
+							<div>
+								<p class="font-semibold">Order Cancelled</p>
+								<p class="text-sm opacity-80">This order has been cancelled and cannot be modified.</p>
+							</div>
+						</div>
+					{:else if order.status === 'refunded'}
+						<div class="flex items-center gap-3 p-4 rounded-lg bg-info/10 border border-info/20 text-info">
+							<RotateCcw class="w-6 h-6 shrink-0" />
+							<div>
+								<p class="font-semibold">Order Refunded</p>
+								<p class="text-sm opacity-80">A full refund has been issued for this order.</p>
+							</div>
+						</div>
+					{:else}
+						<div class="flex items-center">
+							{#each statusSteps as step, i}
+								<div class="flex flex-col items-center gap-2 flex-1">
+									<div
+										class={cn(
+											'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors',
+											getStepState(step.key, order.status) === 'current' && 'bg-primary border-primary text-primary-foreground',
+											getStepState(step.key, order.status) === 'completed' && 'bg-success border-success text-success-foreground',
+											getStepState(step.key, order.status) === 'inactive' && 'bg-muted border-muted-foreground/30 text-muted-foreground'
+										)}
+									>
+										<step.icon class="w-5 h-5" />
+									</div>
+									<span
+										class={cn(
+											'text-xs font-medium',
+											getStepState(step.key, order.status) === 'current' && 'text-primary',
+											getStepState(step.key, order.status) === 'completed' && 'text-success',
+											getStepState(step.key, order.status) === 'inactive' && 'text-muted-foreground'
+										)}
+									>
+										{step.label}
+									</span>
+								</div>
+								{#if i < statusSteps.length - 1}
+									<div
+										class={cn(
+											'h-0.5 flex-1 mx-2 rounded-full',
+											getStepState(step.key, order.status) === 'completed' ? 'bg-success' : 'bg-muted'
+										)}
+									></div>
+								{/if}
+							{/each}
+						</div>
+					{/if}
+
+					<!-- Actions -->
+					<div class="flex flex-wrap gap-3 pt-2">
+						{#if order.status === 'pending'}
+							<Button onclick={() => transitionStatus('processing')} disabled={actionLoading}>
+								Mark as Processing
+							</Button>
+							<Button variant="destructive" onclick={() => (cancelOpen = true)} disabled={actionLoading}>
+								Cancel Order
+							</Button>
+						{:else if order.status === 'processing'}
+							<Button onclick={() => transitionStatus('shipped')} disabled={actionLoading}>
+								Mark as Shipped
+							</Button>
+							<Button variant="destructive" onclick={() => (cancelOpen = true)} disabled={actionLoading}>
+								Cancel Order
+							</Button>
+						{:else if order.status === 'shipped'}
+							<Button onclick={() => transitionStatus('delivered')} disabled={actionLoading}>
+								Mark as Delivered
+							</Button>
+						{:else if order.status === 'delivered'}
+							<Button variant="outline" onclick={() => (refundOpen = true)} disabled={actionLoading}>
+								Issue Refund
+							</Button>
+						{/if}
 					</div>
 				</CardContent>
 			</Card>
@@ -253,3 +373,44 @@
 		</div>
 	</div>
 </div>
+
+<!-- Cancel Confirmation Dialog -->
+<Dialog.Root bind:open={cancelOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Cancel Order</Dialog.Title>
+			<Dialog.Description>
+				Are you sure you want to cancel this order? This action cannot be undone.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (cancelOpen = false)}>Keep Order</Button>
+			<Button variant="destructive" onclick={submitCancel} disabled={actionLoading}>Cancel Order</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Refund Dialog -->
+<Dialog.Root bind:open={refundOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Issue Refund</Dialog.Title>
+			<Dialog.Description>
+				This will issue a full refund for the order. Please provide a reason.
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-3 py-2">
+			<Label for="refund-reason">Reason</Label>
+			<Textarea
+				id="refund-reason"
+				bind:value={refundReason}
+				placeholder="Reason for refund..."
+				rows={3}
+			/>
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (refundOpen = false)}>Cancel</Button>
+			<Button variant="destructive" onclick={submitRefund} disabled={actionLoading}>Issue Refund</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
