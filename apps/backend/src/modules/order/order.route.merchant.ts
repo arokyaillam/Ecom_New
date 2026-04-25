@@ -45,7 +45,7 @@ export default async function merchantOrdersRoutes(fastify: FastifyInstance) {
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = updateStatusSchema.parse(request.body);
-    const order = await orderService.updateStatus(id, request.storeId, parsed.status);
+    const order = await orderService.updateStatus(id, request.storeId, parsed.status, request.userId);
     return { order };
   });
 

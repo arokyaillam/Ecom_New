@@ -4,6 +4,7 @@ import { products, inventoryHistory, categories, users } from '../../db/schema.j
 import { eq, and, desc, sql, ilike, or, lte, gt } from 'drizzle-orm';
 import { ErrorCodes } from '../../errors/codes.js';
 import { notificationService } from '../notification/notification.service.js';
+import { auditService } from '../audit/audit.service.js';
 
 export const inventoryService = {
   async findByStoreId(
@@ -92,6 +93,10 @@ export const inventoryService = {
       reason?: string;
     },
   ) {
+    let previousQty = 0;
+    let newQty = 0;
+    let productLowStockThreshold: number | null = null;
+
     const result = await db.transaction(async (tx) => {
       // Read current product within transaction for consistency
       const [product] = await tx
@@ -110,8 +115,9 @@ export const inventoryService = {
         });
       }
 
-      const previousQty = product.currentQuantity ?? 0;
-      const newQty = data.currentQuantity;
+      previousQty = product.currentQuantity ?? 0;
+      newQty = data.currentQuantity;
+      productLowStockThreshold = product.lowStockThreshold ?? null;
       const changeQty = newQty - previousQty;
 
       // Update product quantity and optionally threshold
@@ -143,6 +149,23 @@ export const inventoryService = {
 
       return updated;
     });
+
+    // Audit log (outside transaction)
+    try {
+      await auditService.log({
+        storeId,
+        userId,
+        action: 'inventory_adjust',
+        entityType: 'inventory',
+        entityId: productId,
+        description: `Stock adjusted from ${previousQty} to ${newQty}`,
+        previousValues: { currentQuantity: previousQty, lowStockThreshold: productLowStockThreshold },
+        newValues: { currentQuantity: newQty, lowStockThreshold: data.lowStockThreshold },
+        metadata: { reason: data.reason },
+      });
+    } catch {
+      // Non-blocking
+    }
 
     // Low stock notification (outside transaction)
     if (result && (result.currentQuantity ?? 0) <= (result.lowStockThreshold ?? 10)) {

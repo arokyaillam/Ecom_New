@@ -1018,6 +1018,29 @@ export const notifications = pgTable("notifications", {
   index("notifications_store_id_created_at_idx").on(table.storeId, table.createdAt),
 ]);
 
+// ─── Audit Logs ───
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  userId: uuid("user_id").references(() => users.id),
+  userEmail: text("user_email"),
+  action: text("action").notNull(), // 'create', 'update', 'delete', 'refund', 'status_change', 'block', 'permission_change', 'inventory_adjust'
+  entityType: text("entity_type").notNull(), // 'order', 'product', 'customer', 'staff', 'inventory', 'payment', 'settings'
+  entityId: text("entity_id"),
+  description: text("description").notNull(),
+  previousValues: json("previous_values").$type<Record<string, unknown>>(),
+  newValues: json("new_values").$type<Record<string, unknown>>(),
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("audit_logs_store_id_idx").on(table.storeId),
+  index("audit_logs_store_id_action_idx").on(table.storeId, table.action),
+  index("audit_logs_store_id_entity_type_idx").on(table.storeId, table.entityType),
+  index("audit_logs_store_id_created_at_idx").on(table.storeId, table.createdAt),
+  index("audit_logs_entity_id_idx").on(table.entityId),
+]);
+
 // ─── Phase 3 Relations ───
 
 export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
@@ -1100,5 +1123,16 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   store: one(stores, {
     fields: [notifications.storeId],
     references: [stores.id],
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  store: one(stores, {
+    fields: [auditLogs.storeId],
+    references: [stores.id],
+  }),
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
   }),
 }));

@@ -1,6 +1,7 @@
 // Customer service — business logic, calls customerRepo, never imports db directly
 import { customerRepo } from './customer.repo.js';
 import { ErrorCodes } from '../../errors/codes.js';
+import { auditService } from '../audit/audit.service.js';
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 12;
@@ -173,7 +174,7 @@ export const customerService = {
     return updated;
   },
 
-  async blockCustomer(customerId: string, storeId: string, reason?: string) {
+  async blockCustomer(customerId: string, storeId: string, userId?: string, reason?: string) {
     const customer = await customerRepo.findById(customerId, storeId);
 
     if (!customer) {
@@ -184,6 +185,22 @@ export const customerService = {
 
     const updated = await customerRepo.updateBlockedStatus(customerId, storeId, true, reason);
 
+    // Audit log
+    try {
+      await auditService.log({
+        storeId,
+        userId,
+        action: 'block',
+        entityType: 'customer',
+        entityId: customerId,
+        description: `Customer blocked`,
+        previousValues: { isBlocked: false },
+        newValues: { isBlocked: true, reason },
+      });
+    } catch {
+      // Non-blocking
+    }
+
     // Strip password from response
     if (updated) {
       const { password: _, ...result } = updated;
@@ -192,7 +209,7 @@ export const customerService = {
     return updated;
   },
 
-  async unblockCustomer(customerId: string, storeId: string) {
+  async unblockCustomer(customerId: string, storeId: string, userId?: string) {
     const customer = await customerRepo.findById(customerId, storeId);
 
     if (!customer) {
@@ -202,6 +219,22 @@ export const customerService = {
     }
 
     const updated = await customerRepo.updateBlockedStatus(customerId, storeId, false);
+
+    // Audit log
+    try {
+      await auditService.log({
+        storeId,
+        userId,
+        action: 'block',
+        entityType: 'customer',
+        entityId: customerId,
+        description: `Customer unblocked`,
+        previousValues: { isBlocked: true },
+        newValues: { isBlocked: false },
+      });
+    } catch {
+      // Non-blocking
+    }
 
     // Strip password from response
     if (updated) {

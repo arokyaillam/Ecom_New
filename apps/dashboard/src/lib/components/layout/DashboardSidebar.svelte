@@ -13,6 +13,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
+import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Bell from '@lucide/svelte/icons/bell';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -58,6 +59,12 @@ import FileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 		{ label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, permission: 'analytics:read' },
 		{ label: 'Reports', href: '/dashboard/reports', icon: FileSpreadsheet, permission: 'analytics:read' },
 		{ label: 'Modifiers', href: '/dashboard/modifiers', icon: SlidersHorizontal, permission: 'products:read' },
+		{
+			label: 'Audit Logs',
+			href: '/dashboard/audit-logs',
+			icon: ClipboardList,
+			permission: 'store:read',
+		},
 		{
 			label: 'Settings',
 			href: '/dashboard/settings',

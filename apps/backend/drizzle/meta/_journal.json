@@ -78,6 +78,13 @@
       "when": 1777099701373,
       "tag": "0010_loud_stardust",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777100304546,
+      "tag": "0011_mute_wendigo",
+      "breakpoints": true
     }
   ]
 }

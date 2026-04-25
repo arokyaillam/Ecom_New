@@ -166,7 +166,7 @@ export default async function merchantStaffRoutes(fastify: FastifyInstance) {
       return;
     }
 
-    const result = await staffService.updateUserPermissions(id, request.storeId, parsed.permissions);
+    const result = await staffService.updateUserPermissions(id, request.storeId, parsed.permissions, request.userId);
     return { staff: result };
   });
 

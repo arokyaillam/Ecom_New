@@ -7,6 +7,7 @@ import { orderRepo } from './order.repo.js';
 import { paymentService } from '../payment/payment.service.js';
 import { findPaymentByOrderId } from '../payment/payment.repo.js';
 import { notificationService } from '../notification/notification.service.js';
+import { auditService } from '../audit/audit.service.js';
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -212,7 +213,7 @@ export const orderService = {
     return this.findById(result.id, data.storeId);
   },
 
-  async updateStatus(orderId: string, storeId: string, status: string) {
+  async updateStatus(orderId: string, storeId: string, status: string, userId?: string) {
     const order = await orderRepo.findByIdSimple(orderId, storeId);
 
     if (!order) {
@@ -221,7 +222,8 @@ export const orderService = {
       });
     }
 
-    validateStatusTransition(order.status, status);
+    const currentStatus = order.status;
+    validateStatusTransition(currentStatus, status);
 
     const updateData: Partial<typeof orders.$inferInsert> = {
       status,
@@ -238,11 +240,13 @@ export const orderService = {
       updateData.fulfillmentStatus = 'fulfilled';
     }
 
+    let updated;
+
     if (status === 'cancelled') {
       // Restore product quantities for cancelled order (within store tenant)
       const items = await orderRepo.findOrderItems(orderId);
 
-      const updated = await db.transaction(async (tx) => {
+      updated = await db.transaction(async (tx) => {
         for (const item of items) {
           if (item.productId) {
             await orderRepo.restoreInventory(
@@ -256,11 +260,27 @@ export const orderService = {
 
         return orderRepo.updateOrder(orderId, storeId, updateData, tx);
       });
-
-      return updated;
+    } else {
+      updated = await orderRepo.updateOrder(orderId, storeId, updateData);
     }
 
-    return orderRepo.updateOrder(orderId, storeId, updateData);
+    // Audit log
+    try {
+      await auditService.log({
+        storeId,
+        userId,
+        action: 'status_change',
+        entityType: 'order',
+        entityId: orderId,
+        description: `Status changed from ${currentStatus} to ${status}`,
+        previousValues: { status: currentStatus },
+        newValues: { status },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    return updated;
   },
 
   async refundOrder(orderId: string, storeId: string, userId: string, reason: string) {
@@ -296,6 +316,21 @@ export const orderService = {
       status: 'refunded',
       updatedAt: new Date(),
     });
+
+    // Audit log
+    try {
+      await auditService.log({
+        storeId,
+        userId,
+        action: 'refund',
+        entityType: 'order',
+        entityId: orderId,
+        description: `Order refunded: ${reason}`,
+        newValues: { refundAmount: payment.amount, reason },
+      });
+    } catch {
+      // Non-blocking
+    }
 
     const updatedOrder = await this.findById(orderId, storeId);
     return { order: updatedOrder, refund };

@@ -87,7 +87,7 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
     const parsed = blockCustomerSchema.parse(request.body);
-    const customer = await customerService.blockCustomer(id, request.storeId, parsed.reason);
+    const customer = await customerService.blockCustomer(id, request.storeId, request.userId, parsed.reason);
     return { customer };
   });
 
@@ -102,7 +102,7 @@ export default async function merchantCustomersRoutes(fastify: FastifyInstance) 
     preHandler: requirePermission('customers:write'),
   }, async (request) => {
     const { id } = idParamSchema.parse(request.params);
-    const customer = await customerService.unblockCustomer(id, request.storeId);
+    const customer = await customerService.unblockCustomer(id, request.storeId, request.userId);
     return { customer };
   });
 }

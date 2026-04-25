@@ -1,6 +1,7 @@
 // Staff service — business logic, calls staffRepo, never imports db directly
 import { staffRepo } from './staff.repo.js';
 import { ErrorCodes } from '../../errors/codes.js';
+import { auditService } from '../audit/audit.service.js';
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 12;
@@ -157,7 +158,7 @@ export const staffService = {
   },
 
   // Update staff permissions
-  async updateUserPermissions(userId: string, storeId: string, permissions: string[]) {
+  async updateUserPermissions(userId: string, storeId: string, permissions: string[], actorId?: string) {
     const user = await staffRepo.findUserById(userId, storeId);
 
     if (!user) {
@@ -168,7 +169,24 @@ export const staffService = {
       throw Object.assign(new Error('Cannot change owner permissions'), { code: ErrorCodes.CANNOT_REMOVE_OWNER });
     }
 
+    const oldPermissions = user.permissions ?? [];
     const updated = await staffRepo.updateUserPermissions(userId, storeId, permissions);
+
+    // Audit log
+    try {
+      await auditService.log({
+        storeId,
+        userId: actorId,
+        action: 'permission_change',
+        entityType: 'staff',
+        entityId: userId,
+        description: 'Permissions updated',
+        previousValues: { permissions: oldPermissions },
+        newValues: { permissions: updated.permissions ?? [] },
+      });
+    } catch {
+      // Non-blocking
+    }
 
     return { id: updated.id, email: updated.email, role: updated.role, permissions: updated.permissions };
   },
