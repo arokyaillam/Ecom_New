@@ -19,11 +19,12 @@ export const DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'categories:read', 'categories:write',
     'modifiers:read', 'modifiers:write',
     'store:read', 'store:write',
-    'payments:config',
+    'payments:config', 'payments:manage', 'payments:refund',
     'shipping:write',
     'tax:write',
     'upload:write',
     'staff:write',
+    'inventory:write',
   ],
   CASHIER: [
     'orders:read', 'orders:write', 'orders:refund',

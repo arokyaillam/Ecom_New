@@ -3,6 +3,33 @@ import { safeDecodeJWT, isTokenExpired, getAuthScope, type MerchantJWTPayload } 
 import { apiFetch } from '$lib/server/api';
 import type { LayoutServerLoad } from './$types';
 
+/** Default permissions per role when API is unreachable */
+const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+	OWNER: ['*'],
+	MANAGER: [
+		'products:read', 'products:write',
+		'orders:read', 'orders:write', 'orders:refund',
+		'customers:read',
+		'coupons:read', 'coupons:write',
+		'analytics:read',
+		'reviews:read', 'reviews:write',
+		'categories:read', 'categories:write',
+		'modifiers:read', 'modifiers:write',
+		'store:read', 'store:write',
+		'payments:config', 'payments:manage', 'payments:refund',
+		'shipping:write',
+		'tax:write',
+		'upload:write',
+		'staff:write',
+		'inventory:write',
+	],
+	CASHIER: [
+		'orders:read', 'orders:write', 'orders:refund',
+		'customers:read',
+		'products:read',
+	],
+};
+
 export const load: LayoutServerLoad = async ({ cookies, fetch }) => {
 	const token = cookies.get('access_token');
 
@@ -38,8 +65,8 @@ export const load: LayoutServerLoad = async ({ cookies, fetch }) => {
 			userPermissions = data.user?.permissions || [];
 		}
 	} catch {
-		// Fallback to empty permissions if fetch fails
-		userPermissions = [];
+		// Fallback to role-based defaults if API is unreachable
+		userPermissions = DEFAULT_ROLE_PERMISSIONS[merchant.role] || [];
 	}
 
 	return {
