@@ -10,6 +10,7 @@
 	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import Settings from '@lucide/svelte/icons/settings';
+	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -49,6 +50,7 @@
 		{ label: 'Customers', href: '/dashboard/customers', icon: Users, permission: 'customers:read' },
 		{ label: 'Coupons', href: '/dashboard/coupons', icon: Ticket, permission: 'coupons:read' },
 		{ label: 'Reviews', href: '/dashboard/reviews', icon: Star, permission: 'reviews:read' },
+		{ label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, permission: 'analytics:read' },
 		{ label: 'Modifiers', href: '/dashboard/modifiers', icon: SlidersHorizontal, permission: 'products:read' },
 		{
 			label: 'Settings',
