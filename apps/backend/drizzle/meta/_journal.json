@@ -36,6 +36,13 @@
       "when": 1776838998192,
       "tag": "0004_demonic_karen_page",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777093412935,
+      "tag": "0005_cold_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

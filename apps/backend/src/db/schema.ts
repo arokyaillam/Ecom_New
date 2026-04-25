@@ -123,6 +123,7 @@ export const products = pgTable("products", {
   discount: decimal("discount").default("0"),
   souqDealDiscount: decimal("souq_deal_discount"),
   currentQuantity: integer("current_quantity").default(0),
+  lowStockThreshold: integer("low_stock_threshold").default(10),
   isPublished: boolean("is_published").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -465,6 +466,7 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   analytics: many(storeAnalytics),
   paymentProviders: many(paymentProviders),
   payments: many(payments),
+  inventoryHistory: many(inventoryHistory),
 }));
 
 export const categoriesRelations = relations(categories, ({ many, one }) => ({
@@ -507,6 +509,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   reviews: many(reviews),
   orderItems: many(orderItems),
   wishlistItems: many(wishlists),
+  inventoryHistory: many(inventoryHistory),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
@@ -732,11 +735,12 @@ export const storeAnalyticsRelations = relations(storeAnalytics, ({ one }) => ({
   }),
 }));
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   store: one(stores, {
     fields: [users.storeId],
     references: [stores.id],
   }),
+  inventoryHistory: many(inventoryHistory),
 }));
 
 export const superAdminsRelations = relations(superAdmins, ({ many }) => ({
@@ -920,6 +924,24 @@ export const payments = pgTable("payments", {
   index("payments_store_id_order_id_idx").on(table.storeId, table.orderId),
 ]);
 
+// ─── Inventory ───
+
+export const inventoryHistory = pgTable("inventory_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").references(() => products.id).notNull(),
+  variantId: uuid("variant_id"),
+  storeId: uuid("store_id").references(() => stores.id).notNull(),
+  changeQty: integer("change_qty").notNull(),
+  previousQty: integer("previous_qty").notNull(),
+  newQty: integer("new_qty").notNull(),
+  reason: text("reason"),
+  userId: uuid("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("inventory_history_product_id_idx").on(table.productId),
+  index("inventory_history_store_id_idx").on(table.storeId),
+]);
+
 // ─── Phase 3 Relations ───
 
 export const paymentProvidersRelations = relations(paymentProviders, ({ one }) => ({
@@ -937,5 +959,20 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   order: one(orders, {
     fields: [payments.orderId],
     references: [orders.id],
+  }),
+}));
+
+export const inventoryHistoryRelations = relations(inventoryHistory, ({ one }) => ({
+  store: one(stores, {
+    fields: [inventoryHistory.storeId],
+    references: [stores.id],
+  }),
+  product: one(products, {
+    fields: [inventoryHistory.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [inventoryHistory.userId],
+    references: [users.id],
   }),
 }));
