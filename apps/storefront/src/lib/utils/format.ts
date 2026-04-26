@@ -9,11 +9,13 @@ export function formatPrice(price: string | number, currency = '$'): string {
 }
 
 /**
- * Parse the comma-separated `images` field into an array of URLs.
- * The backend stores multiple image URLs as a single comma-joined string.
+ * Parse the `images` field into an array of URLs.
+ * The backend stores images as a JSON array of strings.
+ * For backwards compatibility, also accepts comma-separated strings.
  */
-export function parseImages(images: string | null): string[] {
+export function parseImages(images: string | string[] | null | undefined): string[] {
 	if (!images) return [];
+	if (Array.isArray(images)) return images.filter(Boolean);
 	return images
 		.split(',')
 		.map((s) => s.trim())
@@ -21,10 +23,13 @@ export function parseImages(images: string | null): string[] {
 }
 
 /**
- * Parse the comma-separated `tags` field into an array of strings.
+ * Parse the `tags` field into an array of strings.
+ * The backend stores tags as a JSON array of strings.
+ * For backwards compatibility, also accepts comma-separated strings.
  */
-export function parseTags(tags: string | null): string[] {
+export function parseTags(tags: string | string[] | null | undefined): string[] {
 	if (!tags) return [];
+	if (Array.isArray(tags)) return tags.filter(Boolean);
 	return tags
 		.split(',')
 		.map((s) => s.trim())
@@ -56,4 +61,20 @@ export function discountLabel(discountType: string, discount: string): string {
 	if (Number.isNaN(disc) || disc <= 0) return '';
 	if (discountType === 'Percent') return `-${disc}%`;
 	return `-${formatPrice(disc)}`;
+}
+
+/**
+ * Build an optimized image URL by replacing the extension with format/size suffix.
+ * Example: https://cdn.example.com/image.jpg -> https://cdn.example.com/image-1024w.webp
+ */
+export function getOptimizedUrl(originalUrl: string, format: 'webp' | 'avif', size = 1024): string {
+	return originalUrl.replace(/\.[^.]+$/, `-${size}w.${format}`);
+}
+
+/**
+ * Build a srcset string for responsive images.
+ */
+export function getSrcset(originalUrl: string, format: 'webp' | 'avif'): string {
+	const sizes = [320, 640, 1024, 1920];
+	return sizes.map((w) => `${getOptimizedUrl(originalUrl, format, w)} ${w}w`).join(', ');
 }

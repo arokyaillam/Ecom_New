@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ProductListItem } from '@repo/shared-types';
 	import { Heart, Clock } from '@lucide/svelte';
-	import { formatPrice, parseImages, calcDiscountedPrice, discountLabel } from '$lib/utils/format.js';
+	import { formatPrice, parseImages, calcDiscountedPrice, discountLabel, getOptimizedUrl, getSrcset } from '$lib/utils/format.js';
 	import { cn } from '$lib/utils.js';
 
 	interface Props {
@@ -28,12 +28,23 @@
 	<!-- Image area: square/landscape -->
 	<div class="relative aspect-square overflow-hidden">
 		{#if images.length > 0}
-			<img
-				src={images[0]}
-				alt={product.titleEn}
-				loading="lazy"
-				class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-			/>
+			<picture class="block w-full h-full">
+				<source
+					srcset="{getOptimizedUrl(images[0], 'avif')}"
+					type="image/avif"
+				/>
+				<source
+					srcset="{getSrcset(images[0], 'webp')}"
+					type="image/webp"
+				/>
+				<img
+					src={images[0]}
+					alt={product.titleEn}
+					class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+					loading="lazy"
+					decoding="async"
+				/>
+			</picture>
 		{:else}
 			<div class="h-full w-full bg-[var(--color-border)] flex items-center justify-center">
 				<span class="text-[var(--color-text-secondary)] text-sm">No image</span>

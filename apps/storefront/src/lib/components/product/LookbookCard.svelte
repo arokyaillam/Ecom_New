@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ProductListItem } from '@repo/shared-types';
 	import { Heart } from '@lucide/svelte';
-	import { formatPrice, parseImages, calcDiscountedPrice } from '$lib/utils/format.js';
+	import { formatPrice, parseImages, calcDiscountedPrice, getOptimizedUrl, getSrcset } from '$lib/utils/format.js';
 	import { cn } from '$lib/utils.js';
 
 	interface Props {
@@ -42,26 +42,36 @@
 	<div class="relative aspect-[3/4] overflow-hidden bg-[var(--color-border)]">
 		{#if images.length > 0}
 			<!-- Primary image -->
-			<img
-				src={images[0]}
-				alt={product.titleEn}
-				loading="lazy"
-				class={cn(
-					'absolute inset-0 h-full w-full object-cover transition-opacity duration-500',
-					hovered && images.length > 1 ? 'opacity-0' : 'opacity-100'
-				)}
-			/>
+			<picture class={cn(
+				'absolute inset-0 block h-full w-full',
+				hovered && images.length > 1 ? 'opacity-0' : 'opacity-100'
+			)}>
+				<source srcset="{getOptimizedUrl(images[0], 'avif')}" type="image/avif" />
+				<source srcset="{getSrcset(images[0], 'webp')}" type="image/webp" />
+				<img
+					src={images[0]}
+					alt={product.titleEn}
+					class="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+					loading="lazy"
+					decoding="async"
+				/>
+			</picture>
 			<!-- Secondary image — crossfade on hover -->
 			{#if images.length > 1}
-				<img
-					src={images[1]}
-					alt="{product.titleEn} alternate view"
-					loading="lazy"
-					class={cn(
-						'absolute inset-0 h-full w-full object-cover transition-opacity duration-500',
-						hovered ? 'opacity-100' : 'opacity-0'
-					)}
-				/>
+				<picture class={cn(
+					'absolute inset-0 block h-full w-full',
+					hovered ? 'opacity-100' : 'opacity-0'
+				)}>
+					<source srcset="{getOptimizedUrl(images[1], 'avif')}" type="image/avif" />
+					<source srcset="{getSrcset(images[1], 'webp')}" type="image/webp" />
+					<img
+						src={images[1]}
+						alt="{product.titleEn} alternate view"
+						class="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+						loading="lazy"
+						decoding="async"
+					/>
+				</picture>
 			{/if}
 		{:else}
 			<div class="h-full w-full flex items-center justify-center">

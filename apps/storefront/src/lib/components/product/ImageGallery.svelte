@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { parseImages } from '$lib/utils/format.js';
+  import { getOptimizedUrl, getSrcset } from '$lib/utils/format.js';
 
   interface Props {
     images: string[];
@@ -18,12 +18,23 @@
   <!-- Main image -->
   <div class="relative aspect-square overflow-hidden rounded-[var(--radius-md)] bg-[var(--color-surface)] border border-[var(--color-border)]">
     {#if images.length > 0}
-      <img
-        src={images[displayIndex]}
-        alt={`${title} - Image {displayIndex + 1}`}
-        class="w-full h-full object-cover transition-opacity duration-300"
-        loading="eager"
-      />
+      <picture class="block w-full h-full">
+        <source
+          srcset="{getOptimizedUrl(images[displayIndex], 'avif')}"
+          type="image/avif"
+        />
+        <source
+          srcset="{getSrcset(images[displayIndex], 'webp')}"
+          type="image/webp"
+        />
+        <img
+          src={images[displayIndex]}
+          alt={`${title} - Image {displayIndex + 1}`}
+          class="w-full h-full object-cover transition-opacity duration-300"
+          loading="eager"
+          decoding="async"
+        />
+      </picture>
     {:else}
       <div class="w-full h-full flex items-center justify-center text-[var(--color-text-secondary)]">
         No image
@@ -62,7 +73,10 @@
           onmouseleave={() => (hoveredIndex = -1)}
           aria-label="View image {i + 1}"
         >
-          <img src={img} alt="" class="w-full h-full object-cover" loading="lazy" />
+          <picture class="block w-full h-full">
+            <source srcset="{getOptimizedUrl(img, 'webp', 320)}" type="image/webp" />
+            <img src={img} alt="" class="w-full h-full object-cover" loading="lazy" decoding="async" />
+          </picture>
         </button>
       {/each}
     </div>
