@@ -25,6 +25,7 @@ const envSchema = z.object({
 
   // S3 Storage - optional in dev (local first)
   S3_BUCKET: z.string().optional(),
+  S3_BACKUP_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
