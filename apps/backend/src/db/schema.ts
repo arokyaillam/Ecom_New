@@ -177,6 +177,28 @@ export const productVariantCombinations = pgTable("product_variant_combinations"
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Product Bundles ───
+
+export const productBundles = pgTable("product_bundles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").notNull().references(() => stores.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const productBundleItems = pgTable("product_bundle_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bundleId: uuid("bundle_id").notNull().references(() => productBundles.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull().references(() => products.id),
+  quantity: integer("quantity").default(1).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const modifierGroups = pgTable("modifier_groups", {
   id: uuid("id").primaryKey().defaultRandom(),
   storeId: uuid("store_id").references(() => stores.id).notNull(),
@@ -469,6 +491,7 @@ export const storesRelations = relations(stores, ({ many, one }) => ({
   customers: many(customers),
   orders: many(orders),
   coupons: many(coupons),
+  bundles: many(productBundles),
   analytics: many(storeAnalytics),
   paymentProviders: many(paymentProviders),
   payments: many(payments),
@@ -516,6 +539,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   reviews: many(reviews),
   orderItems: many(orderItems),
   wishlistItems: many(wishlists),
+  bundleItems: many(productBundleItems),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
@@ -549,6 +573,25 @@ export const productVariantCombinationsRelations = relations(productVariantCombi
   store: one(stores, {
     fields: [productVariantCombinations.storeId],
     references: [stores.id],
+  }),
+}));
+
+export const productBundlesRelations = relations(productBundles, ({ one, many }) => ({
+  store: one(stores, {
+    fields: [productBundles.storeId],
+    references: [stores.id],
+  }),
+  items: many(productBundleItems),
+}));
+
+export const productBundleItemsRelations = relations(productBundleItems, ({ one }) => ({
+  bundle: one(productBundles, {
+    fields: [productBundleItems.bundleId],
+    references: [productBundles.id],
+  }),
+  product: one(products, {
+    fields: [productBundleItems.productId],
+    references: [products.id],
   }),
 }));
 
