@@ -1,8 +1,9 @@
-// Public Scope - No authentication required
+﻿// Public Scope - No authentication required
 // Used for storefront browsing, product viewing, cart operations
 
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { generateCsrfToken, setCsrfCookie, validateCsrf } from '../lib/csrf.js';
+import seoPublicRoutes from '../modules/seo/seo.route.public.js';
 
 export default async function publicScope(fastify: FastifyInstance, _opts: FastifyPluginOptions) {
   // CSRF: set cookie on safe methods if missing; validate on mutating methods
@@ -16,8 +17,19 @@ export default async function publicScope(fastify: FastifyInstance, _opts: Fasti
     }
   });
 
-  // Tenant resolution from Host header domain/subdomain
+  // Tenant resolution from Host header or X-Store-Domain header
   fastify.addHook('onRequest', async (request, _reply) => {
+    // Prefer X-Store-Domain header (BFF/proxy cannot override Host with Node.js fetch)
+    const xDomain = request.headers['x-store-domain'];
+    if (xDomain) {
+      const domain = Array.isArray(xDomain) ? xDomain[0] : xDomain;
+      const store = await fastify.storeService.findByDomain(domain);
+      if (store) {
+        request.storeId = store.id;
+        return;
+      }
+    }
+
     const rawHost = request.headers.host;
     const host = Array.isArray(rawHost) ? rawHost[0] : rawHost;
     if (host) {
@@ -34,7 +46,16 @@ export default async function publicScope(fastify: FastifyInstance, _opts: Fasti
         const found = await fastify.storeService.findByDomain(subdomain);
         if (found) {
           request.storeId = found.id;
+          return;
         }
+      }
+    }
+
+    // Development fallback: default to techgear store when no domain matches
+    if (!request.storeId && process.env.NODE_ENV !== 'production') {
+      const fallback = await fastify.storeService.findByDomain('techgear');
+      if (fallback) {
+        request.storeId = fallback.id;
       }
     }
   });
@@ -47,5 +68,7 @@ export default async function publicScope(fastify: FastifyInstance, _opts: Fasti
   fastify.register(import('../modules/analytics/analytics.route.public.js'), { prefix: '/analytics' });
   fastify.register(import('../modules/shipping/shipping.route.public.js'), { prefix: '/shipping' });
   fastify.register(import('../modules/tax/tax.route.public.js'), { prefix: '/tax' });
+  fastify.register(import('../modules/currency/currency.route.public.js'), { prefix: '/currency' });
   fastify.register(import('../modules/payment/payment.route.public.js'), { prefix: '/payments' });
+  fastify.register(seoPublicRoutes, { prefix: '' });
 }
