@@ -2,6 +2,7 @@
 
 import 'dotenv/config';
 import Fastify from 'fastify';
+import pino from 'pino';
 import { env } from './config/env.js';
 import plugins from './plugins/index.js';
 import publicScope from './scopes/public.js';
@@ -35,8 +36,15 @@ function isPrivateIp(ip: string): boolean {
   return false;
 }
 
+const logger = pino({
+  level: env.LOG_LEVEL,
+  transport: env.isProduction
+    ? undefined
+    : { target: 'pino-pretty', options: { colorize: true } },
+});
+
 const fastify = Fastify({
-  logger: { level: env.LOG_LEVEL },
+  loggerInstance: logger,
   genReqId: () => crypto.randomUUID(),
   trustProxy: env.isProduction ? 1 : false,
 });
@@ -79,6 +87,18 @@ fastify.addHook('onRequest', async (request, reply) => {
     reply.status(403).send({ error: 'Forbidden', code: ErrorCodes.PERMISSION_DENIED, message: 'Invalid CSRF token' });
     return;
   }
+});
+
+fastify.addHook('onResponse', async (request, reply) => {
+  fastify.log.info({
+    reqId: request.id,
+    method: request.method,
+    url: request.url,
+    statusCode: reply.statusCode,
+    responseTime: reply.elapsedTime,
+    storeId: (request as any).storeId,
+    userId: (request as any).user?.id,
+  }, 'request completed');
 });
 
 // Decorate services
