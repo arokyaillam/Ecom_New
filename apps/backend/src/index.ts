@@ -18,6 +18,7 @@ import { pricingService } from './modules/pricing/pricing.service.js';
 import { staffService } from './modules/staff/staff.service.js';
 import { paymentService } from './modules/payment/payment.service.js';
 import { createEmailProcessor } from './services/emailProcessor.service.js';
+import { backupService } from './modules/backup/backup.service.js';
 import { ErrorCodes } from './errors/codes.js';
 import { sql } from 'drizzle-orm';
 
@@ -193,6 +194,15 @@ fastify.get('/health/detailed', async (request, reply) => {
       heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
     },
     pool: poolMetrics,
+  };
+});
+
+fastify.get('/health/backup', async (_request, _reply) => {
+  const latest = await backupService.getLatestBackup();
+  return {
+    status: latest ? 'ok' : 'warning',
+    lastBackup: latest?.lastModified ?? null,
+    filename: latest?.filename ?? null,
   };
 });
 
