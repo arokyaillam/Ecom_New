@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { db } from '../../db/index.js';
 import { products, categories, stores } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { seoService } from './seo.service.js';
 
 export default async function (fastify: FastifyInstance) {
   fastify.get('/robots.txt', async (_request, reply) => {
@@ -53,5 +54,16 @@ export default async function (fastify: FastifyInstance) {
 
     reply.header('Content-Type', 'application/xml');
     return xml;
+  });
+
+  fastify.get('/products/:id/jsonld', async (request, reply) => {
+    const storeId = request.storeId as string;
+    const { id } = request.params as { id: string };
+    const jsonLd = await seoService.getProductJsonLd(storeId, id);
+    if (!jsonLd) {
+      reply.status(404);
+      return { error: 'Product not found' };
+    }
+    return jsonLd;
   });
 }
