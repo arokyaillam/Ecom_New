@@ -24,6 +24,7 @@ import { ErrorCodes } from './errors/codes.js';
 import { sql } from 'drizzle-orm';
 import { initSentry, Sentry } from './services/sentry.service.js';
 import { runAbandonedCartCron } from './jobs/abandonedCartCron.js';
+import { runExchangeRateCron } from './jobs/exchangeRateCron.js';
 
 initSentry();
 
@@ -411,6 +412,14 @@ setInterval(() => {
 
 // Run once on startup
 runAbandonedCartCron(queueService).catch((err) => fastify.log.error(err));
+
+// Run exchange rate update daily
+setInterval(() => {
+  runExchangeRateCron().catch((err) => fastify.log.error(err));
+}, 24 * 60 * 60 * 1000);
+
+// Run once on startup
+runExchangeRateCron().catch((err) => fastify.log.error(err));
 
 // Graceful shutdown
 const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
